@@ -13,7 +13,7 @@ function App() {
 
     return (
         <div className="p-8">
-            <Button>Click me</Button>
+            <p>Status: {api}</p>
         </div>
     );
 }
