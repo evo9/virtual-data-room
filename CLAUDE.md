@@ -11,12 +11,19 @@ Evaluation priorities from the assignment, in order:
 
 When a trade-off comes up, resolve it in that order.
 
+## Sources of truth
+
+- `docs/specs/data-room-test-task-ru.md` - the assignment (requirements source of truth).
+- `docs/tasks/00-plan.md` + `01`-`10` - the plan; each task file has its own DoD and "грабли".
+- `apps/api/CLAUDE.md` / `apps/web/CLAUDE.md` - per-app architecture and conventions. Read the relevant one before touching that app.
+
 ## Stack
 
-- `apps/web` - React 18 + TypeScript + Vite, Tailwind, shadcn/ui, TanStack Query. Deployed on Vercel.
-- `apps/api` - NestJS + Prisma + PostgreSQL. Deployed on Railway.
+- `apps/web` - React 19 + TypeScript + Vite, Tailwind 4, shadcn/ui, TanStack Query. Deployed on Vercel.
+- `apps/api` - NestJS 11 + Prisma + PostgreSQL. Deployed on Railway.
 - File storage: Supabase Storage, private bucket, signed URLs only.
 - Auth: email/password, JWT (single access token, no refresh - deliberate MVP cut).
+- npm, two independent package.json. No turborepo/nx - deliberate.
 
 ## Commands
 
@@ -25,47 +32,36 @@ When a trade-off comes up, resolve it in that order.
 cd apps/api
 npm run start:dev        # dev server
 npx prisma migrate dev   # create/apply migration locally
-npx prisma migrate deploy # apply on prod
+npx prisma migrate deploy # apply on prod (also runs in start script)
 npm run seed             # test user + demo data room
+npm run build && npm run lint
 
 # web
 cd apps/web
 npm run dev
 npm run build            # must pass before any commit that touches web
+npm run lint
 ```
 
-## Architecture rules
+## Language
 
-- **No DDD/CQRS here.** Plain NestJS modules: controller -> service -> Prisma. No repositories, no command buses, no domain events. This is intentional for the scope; do not "improve" it.
-- **One module per resource:** auth, data-rooms, folders, files, shares. Shared helpers in `src/common`.
-- **All authorization goes through `resolveAccess(actor, resource) -> OWNER | VIEWER | NONE`** in `src/common/access`. Never inline ownership checks in controllers. Mutations require OWNER, reads require >= VIEWER. Unauthorized reads return 404, not 403.
-- **Folder tree uses a materialized path** (`Folder.path`, string of ids like `/rootId/childId/`). Subtree queries via `path LIKE 'prefix%'`. Do not add recursive CTEs.
-- **File name vs storage key are independent.** `storageKey` is a uuid, never derived from the file name. Rename = row update only.
-- **Name conflicts** are resolved by the single helper `resolveName(dataRoomId, folderId, name)` -> "name (1).pdf". Used by upload, rename, move. Case-insensitive comparison.
-- **Uploads are presigned:** api issues an upload intent + signed URL, browser uploads directly to storage via XMLHttpRequest (fetch has no upload progress), then confirms via `/files/:id/complete`. The api never proxies file bytes.
-- **Signed download/view URLs are short-lived** (minutes), so revoking a share actually revokes access.
-
-## Frontend rules
-
-- shadcn/ui components as-is; do not hand-roll dialogs, dropdowns, toasts.
-- TanStack Query for all server state; after mutations invalidate the affected folder keys (source and target on move).
-- Every list has a loading skeleton and an empty state. Every mutation shows a toast on success and on error.
-- Public share pages (`/share/:token`) are a separate read-only view: no disabled edit buttons, no edit UI at all.
-- Do not add features outside the assignment scope (dark mode, i18n, custom PDF viewer). Browser-native PDF rendering via `<object>` is enough.
-
-## Validation and errors
-
-- class-validator DTOs on every endpoint; frontend validation is a convenience, backend is the source of truth.
-- Errors return a message the frontend can show directly in a toast.
-- Login failures return one generic message (no email enumeration).
+**Everything in the product is English-only:** UI texts, API error messages, validation messages, code identifiers, comments, commit messages, README. No Russian (or any other language) anywhere in the deliverable - the assignment is reviewed by an English-speaking team. Russian is fine only in `docs/tasks/` planning files and chat. Before closing a task, grep for Cyrillic: `grep -rnP '[а-яА-ЯёЁ]' apps/*/src`.
 
 ## Definition of done for any task
 
 - Works on the deployed prod URLs, not just localhost (CORS on both api and storage bucket is a known trap - verify on prod).
 - Error and empty states handled, not just the happy path.
 - `npm run build` passes in both apps.
+- The task file's own "Готово, когда" checklist holds.
 
 ## Process
 
-- After completing any meaningful chunk, append 1-2 lines to `ai-notes.md` in the repo root: what was delegated, what was rewritten by hand, where the model got it wrong. This file feeds the "AI usage" section of the README and is part of the deliverable.
-- Keep commits small and scoped to one task file from the plan (01-10).
+- Orchestration, subagent roster, and the feature pipeline: see the imported workflow rules below. `/task-done` runs the closing checklist for a task; `/prod-check` verifies the deployed environment.
+- After completing any meaningful chunk, append 1-2 lines to `ai-notes.md` in the repo root: what was delegated, what was rewritten by hand, where the model got it wrong. This file feeds the "AI usage" section of the README and is part of the deliverable (task 10).
+- **The agent never commits or pushes - hard ban, no exceptions** (see git rules). When a chunk is ready: `git diff --stat` + a suggested commit message, then stop. The user commits personally, keeping commits small and scoped to one task file from the plan (01-10).
+
+## Rules
+
+@.claude/rules/workflow.md
+@.claude/rules/git-operations.md
+@.claude/rules/code-style.md
