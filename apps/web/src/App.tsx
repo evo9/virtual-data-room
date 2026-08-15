@@ -1,20 +1,43 @@
-import { useEffect, useState } from 'react';
+import { Navigate, Route, Routes } from "react-router-dom";
+
+import { AuthProvider } from "@/features/auth/auth-provider";
+import { ProtectedRoute, PublicOnlyRoute } from "@/features/auth/route-guards";
+import { LoginPage } from "@/features/auth/login-page";
+import { RegisterPage } from "@/features/auth/register-page";
+import { DataRoomPage } from "@/features/data-room/data-room-page";
 
 function App() {
-    const [api, setApi] = useState('checking...')
-
-    useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL}/health`)
-            .then(r => r.json())
-            .then(d => setApi(d.status))
-            .catch(() => setApi('unreachable'))
-    }, [])
-
-    return (
-        <div className="p-8">
-            <p>Status: {api}</p>
-        </div>
-    );
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicOnlyRoute>
+              <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DataRoomPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
+  );
 }
 
 export default App;
