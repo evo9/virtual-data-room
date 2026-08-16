@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { DEFAULT_DATA_ROOM_NAME } from '@/data-rooms/data-rooms.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -32,8 +33,14 @@ export class AuthService {
 
     let user: { id: string; email: string };
     try {
-      user = await this.prisma.user.create({
-        data: { email, passwordHash, name: dto.name.trim() },
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { email, passwordHash, name: dto.name.trim() },
+        });
+        await tx.dataRoom.create({
+          data: { name: DEFAULT_DATA_ROOM_NAME, ownerId: created.id },
+        });
+        return created;
       });
     } catch (error) {
       if (

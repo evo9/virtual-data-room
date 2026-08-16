@@ -48,6 +48,14 @@ api.interceptors.response.use(
   }
 );
 
+export function isNotFoundError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  // A malformed id fails UUID validation (400) before the ownership check
+  // ever runs (404) - both mean "there's nothing here for you", so a deep
+  // link treats them the same way.
+  return error.response?.status === 404 || error.response?.status === 400;
+}
+
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
