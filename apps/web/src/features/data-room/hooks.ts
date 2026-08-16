@@ -18,8 +18,8 @@ export type FoldersQuery = UseInfiniteQueryResult<InfiniteData<Page<FolderNode>>
 
 export const dataRoomsKey = ["data-rooms"] as const;
 
-export function contentsKey(folderId: string | null) {
-  return ["folder-contents", folderId ?? "root"] as const;
+export function contentsKey(dataRoomId: string, folderId: string | null) {
+  return ["folder-contents", folderId ?? `root:${dataRoomId}`] as const;
 }
 
 export function breadcrumbsKey(folderId: string) {
@@ -56,7 +56,7 @@ export function useCreateDataRoom() {
 
 export function useFolderContents(dataRoomId: string, folderId: string | null): ContentsQuery {
   return useInfiniteQuery({
-    queryKey: contentsKey(folderId),
+    queryKey: contentsKey(dataRoomId, folderId),
     queryFn: ({ pageParam }) =>
       folderId
         ? fetchFolderContents(folderId, { cursor: pageParam })

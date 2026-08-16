@@ -22,12 +22,13 @@ import { fileBaseNameSchema, type FileBaseNameValues } from "@/features/data-roo
 
 interface RenameFileDialogProps {
   file: FileItem | null;
+  dataRoomId: string;
   listingFolderId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function RenameFileDialog({ file, listingFolderId, open, onOpenChange }: RenameFileDialogProps) {
+export function RenameFileDialog({ file, dataRoomId, listingFolderId, open, onOpenChange }: RenameFileDialogProps) {
   const queryClient = useQueryClient();
   const { ext } = file ? splitFileName(file.name) : { ext: "" };
 
@@ -52,7 +53,7 @@ export function RenameFileDialog({ file, listingFolderId, open, onOpenChange }: 
       toast.success(
         updated.name !== submittedName ? `Renamed to "${updated.name}" to avoid a naming conflict` : "File renamed"
       );
-      queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, listingFolderId) });
       onOpenChange(false);
     },
     onError: (error) => {

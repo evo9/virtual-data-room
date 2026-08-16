@@ -17,12 +17,19 @@ import { contentsKey, foldersKeyPrefix, useDeletePreview } from "@/features/data
 
 interface DeleteFolderDialogProps {
   folder: FolderItem | null;
+  dataRoomId: string;
   listingFolderId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function DeleteFolderDialog({ folder, listingFolderId, open, onOpenChange }: DeleteFolderDialogProps) {
+export function DeleteFolderDialog({
+  folder,
+  dataRoomId,
+  listingFolderId,
+  open,
+  onOpenChange,
+}: DeleteFolderDialogProps) {
   const queryClient = useQueryClient();
   const previewQuery = useDeletePreview(open ? (folder?.id ?? null) : null);
 
@@ -30,7 +37,7 @@ export function DeleteFolderDialog({ folder, listingFolderId, open, onOpenChange
     mutationFn: () => deleteFolder(folder!.id),
     onSuccess: () => {
       toast.success(`"${folder?.name}" deleted`);
-      queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, listingFolderId) });
       queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);
     },

@@ -70,4 +70,20 @@ export class FilesController {
   ) {
     return this.filesService.getDownloadUrl(user.id, id);
   }
+
+  @Get(':id')
+  getFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.filesService.getFile(user.id, id);
+  }
+
+  @Get(':id/view-url')
+  getViewUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.filesService.getViewUrl(user.id, id);
+  }
 }

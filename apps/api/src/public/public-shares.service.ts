@@ -129,11 +129,53 @@ export class PublicSharesService {
       'VIEWER',
     );
 
+    const url = await this.storage.createViewUrl(file.storageKey);
+    return { url };
+  }
+
+  async getFileDownloadUrl(
+    token: string,
+    fileId: string,
+  ): Promise<{ url: string }> {
+    await assertPublicTokenActive(this.prisma, token);
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const scope = await fileScope(this.prisma, file);
+    await requireAccess(
+      this.prisma,
+      { token },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
+
     const url = await this.storage.createDownloadUrl(
       file.storageKey,
       file.name,
     );
     return { url };
+  }
+
+  async getFileSummary(
+    token: string,
+    fileId: string,
+  ): Promise<{ id: string; name: string; size: number; mimeType: string }> {
+    await assertPublicTokenActive(this.prisma, token);
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const scope = await fileScope(this.prisma, file);
+    await requireAccess(
+      this.prisma,
+      { token },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
+
+    return {
+      id: file.id,
+      name: file.name,
+      size: file.size,
+      mimeType: file.mimeType,
+    };
   }
 
   private async getActiveLinkOrThrow(token: string): Promise<Share> {

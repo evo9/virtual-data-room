@@ -120,6 +120,11 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
                 file={item}
                 canManage={canManage}
                 downloadPending={downloadMutation.isPending && downloadMutation.variables === item.id}
+                onOpen={() =>
+                  navigate(`/file/${item.id}`, {
+                    state: { from: folderId ? `/folder/${folderId}` : `/room/${dataRoomId}` },
+                  })
+                }
                 onRename={() => setRenameFileTarget(item)}
                 onMove={() => setMoveFileTarget(item)}
                 onDownload={() => downloadMutation.mutate(item.id)}
@@ -158,18 +163,21 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
 
       <RenameFolderDialog
         folder={renameTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={renameTarget !== null}
         onOpenChange={(open) => !open && setRenameTarget(null)}
       />
       <DeleteFolderDialog
         folder={deleteTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       />
       <RenameFileDialog
         file={renameFileTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={renameFileTarget !== null}
         onOpenChange={(open) => !open && setRenameFileTarget(null)}
@@ -182,6 +190,7 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
       />
       <DeleteFileDialog
         file={deleteFileTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={deleteFileTarget !== null}
         onOpenChange={(open) => !open && setDeleteFileTarget(null)}
@@ -235,6 +244,7 @@ function FileRow({
   file,
   canManage,
   downloadPending,
+  onOpen,
   onRename,
   onMove,
   onDownload,
@@ -244,6 +254,7 @@ function FileRow({
   file: FileItem;
   canManage: boolean;
   downloadPending: boolean;
+  onOpen: () => void;
   onRename: () => void;
   onMove: () => void;
   onDownload: () => void;
@@ -251,7 +262,7 @@ function FileRow({
   onDelete: () => void;
 }) {
   return (
-    <TableRow>
+    <TableRow className="cursor-pointer" onClick={onOpen}>
       <TableCell className="font-medium">
         <span className="flex items-center gap-2">
           <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />

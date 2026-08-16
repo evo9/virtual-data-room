@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { isGoneError } from "@/lib/api";
+import { isGoneError, isNotFoundError } from "@/lib/api";
 import { fetchPublicShare } from "@/features/sharing/api";
 import { PublicContentsBrowser } from "@/features/sharing/components/public-contents-browser";
 import { PublicFileCard } from "@/features/sharing/components/public-file-card";
@@ -15,7 +15,7 @@ export function PublicSharePage() {
   const summaryQuery = useQuery({
     queryKey: ["public-share", token],
     queryFn: () => fetchPublicShare(token),
-    retry: false,
+    retry: (failureCount, error) => !isGoneError(error) && !isNotFoundError(error) && failureCount < 3,
   });
 
   return (
@@ -25,7 +25,12 @@ export function PublicSharePage() {
       <main className="flex flex-1 flex-col">
         {summaryQuery.isPending && <PublicShareSkeleton />}
 
-        {summaryQuery.isError && <PublicShareError revoked={isGoneError(summaryQuery.error)} />}
+        {summaryQuery.isError && (
+          <PublicShareError
+            revoked={isGoneError(summaryQuery.error)}
+            onRetry={isGoneError(summaryQuery.error) ? undefined : () => summaryQuery.refetch()}
+          />
+        )}
 
         {summaryQuery.isSuccess &&
           (summaryQuery.data.resourceType === "FILE" ? (

@@ -67,7 +67,7 @@ export function useUploadQueue(dataRoomId: string, folderId: string | null) {
         await completeUpload(intent.fileId);
 
         updateTask(taskId, { status: "done", progress: 100 });
-        queryClient.invalidateQueries({ queryKey: contentsKey(folderId) });
+        queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, folderId) });
       } catch (error) {
         updateTask(taskId, { status: "error", error: getErrorMessage(error, "Upload failed") });
       }

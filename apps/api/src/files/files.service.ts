@@ -14,6 +14,15 @@ import { UploadIntentDto } from './dto/upload-intent.dto';
 import { RenameFileDto } from './dto/rename-file.dto';
 import { MoveFileDto } from './dto/move-file.dto';
 
+export interface FileDetail {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  folderId: string | null;
+  dataRoomId: string;
+}
+
 const FILE_SELECT = {
   id: true,
   name: true,
@@ -202,6 +211,42 @@ export class FilesService {
       file.storageKey,
       file.name,
     );
+    return { url };
+  }
+
+  async getFile(userId: string, fileId: string): Promise<FileDetail> {
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const scope = await fileScope(this.prisma, file);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
+
+    return {
+      id: file.id,
+      name: file.name,
+      size: file.size,
+      mimeType: file.mimeType,
+      folderId: file.folderId,
+      dataRoomId: file.dataRoomId,
+    };
+  }
+
+  async getViewUrl(userId: string, fileId: string): Promise<{ url: string }> {
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const scope = await fileScope(this.prisma, file);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
+
+    const url = await this.storage.createViewUrl(file.storageKey);
     return { url };
   }
 }

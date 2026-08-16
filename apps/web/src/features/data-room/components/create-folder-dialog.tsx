@@ -47,7 +47,7 @@ export function CreateFolderDialog({ open, onOpenChange, dataRoomId, parentId }:
       createFolder({ name: values.name, dataRoomId, parentId: parentId ?? undefined }),
     onSuccess: () => {
       toast.success("Folder created");
-      queryClient.invalidateQueries({ queryKey: contentsKey(parentId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, parentId) });
       queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);
     },

@@ -6,9 +6,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getErrorMessage, isGoneError } from "@/lib/api";
+import { getErrorMessage, isGoneError, isNotFoundError } from "@/lib/api";
 import {
-  fetchPublicFileViewUrl,
+  fetchPublicFileDownloadUrl,
   fetchPublicFolderContents,
   fetchPublicRootContents,
 } from "@/features/sharing/api";
@@ -42,10 +42,11 @@ export function PublicContentsBrowser({
         : fetchPublicFolderContents(token, listFolderId!, { cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: (failureCount, error) => !isGoneError(error) && !isNotFoundError(error) && failureCount < 3,
   });
 
   const downloadMutation = useMutation({
-    mutationFn: (fileId: string) => fetchPublicFileViewUrl(token, fileId),
+    mutationFn: (fileId: string) => fetchPublicFileDownloadUrl(token, fileId),
     onMutate: (fileId) => setDownloadingFileId(fileId),
     onSuccess: (url) => {
       window.location.href = url;
@@ -91,7 +92,16 @@ export function PublicContentsBrowser({
         </div>
       )}
 
-      {contentsQuery.isError && !contentsQuery.data && (
+      {contentsQuery.isError && !contentsQuery.data && isNotFoundError(contentsQuery.error) && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-12 text-center">
+          <p className="text-sm text-muted-foreground">This folder is no longer available.</p>
+          <Button variant="outline" size="sm" render={<Link to={`/share/${token}`} />}>
+            Back to {rootResourceName}
+          </Button>
+        </div>
+      )}
+
+      {contentsQuery.isError && !contentsQuery.data && !isNotFoundError(contentsQuery.error) && (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-12 text-center">
           <p className="text-sm text-muted-foreground">Could not load this folder's contents.</p>
           <Button variant="outline" size="sm" onClick={() => contentsQuery.refetch()}>
@@ -111,6 +121,11 @@ export function PublicContentsBrowser({
               items={items}
               downloadingFileId={downloadingFileId}
               onOpenFolder={(folderId) => navigate(`/share/${token}/folders/${folderId}`)}
+              onOpenFile={(fileId) =>
+                navigate(`/share/${token}/files/${fileId}`, {
+                  state: { from: isDataRoomRoot ? `/share/${token}` : `/share/${token}/folders/${listFolderId}` },
+                })
+              }
               onDownloadFile={(fileId) => downloadMutation.mutate(fileId)}
             />
           )}

@@ -78,6 +78,15 @@ export interface FileSummary {
   createdAt: string;
 }
 
+export interface FileDetail {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  folderId: string | null;
+  dataRoomId: string;
+}
+
 export interface FolderNode {
   id: string;
   name: string;
@@ -154,6 +163,16 @@ export async function deleteFile(fileId: string): Promise<void> {
 
 export async function getFileDownloadUrl(fileId: string): Promise<string> {
   const { data } = await api.get<{ url: string }>(`/files/${fileId}/download-url`);
+  return data.url;
+}
+
+export async function fetchFile(fileId: string): Promise<FileDetail> {
+  const { data } = await api.get<FileDetail>(`/files/${fileId}`);
+  return data;
+}
+
+export async function fetchFileViewUrl(fileId: string): Promise<string> {
+  const { data } = await api.get<{ url: string }>(`/files/${fileId}/view-url`);
   return data.url;
 }
 
