@@ -49,9 +49,16 @@ export interface BreadcrumbFolder {
   name: string;
 }
 
+export type AccessLevel = "OWNER" | "VIEWER";
+
 export interface Breadcrumbs {
-  dataRoom: { id: string; name: string };
+  dataRoomId: string;
+  // Null when the caller reached this folder through a share whose
+  // boundary is below the room root - the room itself is a resource they
+  // resolve to NONE on, so its name must not leak into the breadcrumb trail.
+  dataRoomName: string | null;
   folders: BreadcrumbFolder[];
+  accessLevel: AccessLevel;
 }
 
 export interface DeletePreview {

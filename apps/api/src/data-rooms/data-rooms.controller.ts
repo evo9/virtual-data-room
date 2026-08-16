@@ -34,6 +34,14 @@ export class DataRoomsController {
     return this.dataRoomsService.findAllForUser(user.id, query);
   }
 
+  @Get(':id')
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.dataRoomsService.findOne(user.id, id);
+  }
+
   @Get(':id/contents')
   getContents(
     @CurrentUser() user: AuthenticatedUser,

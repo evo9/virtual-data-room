@@ -56,6 +56,14 @@ export function isNotFoundError(error: unknown): boolean {
   return error.response?.status === 404 || error.response?.status === 400;
 }
 
+// A revoked public share link is distinct from a nonexistent one: the token
+// still resolves, so the owner-facing "ask for a new link" message applies
+// instead of a generic not-found page.
+export function isGoneError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  return error.response?.status === 410;
+}
+
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;

@@ -1,4 +1,4 @@
-import { MoreVerticalIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { MoreVerticalIcon, PencilIcon, Share2Icon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,10 +11,11 @@ import {
 interface FolderRowMenuProps {
   folderName: string;
   onRename: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }
 
-export function FolderRowMenu({ folderName, onRename, onDelete }: FolderRowMenuProps) {
+export function FolderRowMenu({ folderName, onRename, onShare, onDelete }: FolderRowMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -26,6 +27,9 @@ export function FolderRowMenu({ folderName, onRename, onDelete }: FolderRowMenuP
       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
         <DropdownMenuItem onClick={onRename}>
           <PencilIcon /> Rename
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onShare}>
+          <Share2Icon /> Share
         </DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <Trash2Icon /> Delete

@@ -4,10 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Folder } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { StorageService } from '@/storage/storage.service';
-import { requireAccess } from '@/common/access';
+import {
+  dataRoomScope,
+  folderScope,
+  getFolderOrThrow,
+  requireAccess,
+  resolveShareBoundary,
+} from '@/common/access';
 import { ContentItem, fetchContents } from '@/common/contents';
 import { decodeContentsCursor } from '@/common/pagination';
 import type { Page } from '@/common/pagination';
@@ -39,7 +44,14 @@ export class FoldersService {
   ) {}
 
   async create(userId: string, dto: CreateFolderDto) {
-    await requireAccess(this.prisma, userId, dto.dataRoomId, 'OWNER');
+    const roomScope = dataRoomScope(dto.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      roomScope.dataRoomId,
+      roomScope.chain,
+      'OWNER',
+    );
 
     let parentPath = '';
     if (dto.parentId) {
@@ -78,8 +90,15 @@ export class FoldersService {
     folderId: string,
     query: PaginationQueryDto,
   ): Promise<Page<ContentItem>> {
-    const folder = await this.getFolderOrThrow(folderId);
-    await requireAccess(this.prisma, userId, folder.dataRoomId, 'VIEWER');
+    const folder = await getFolderOrThrow(this.prisma, folderId);
+    const scope = folderScope(folder);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
     const cursor = parseCursor(decodeContentsCursor, query.cursor);
     return fetchContents(this.prisma, folder.dataRoomId, folder.id, {
       cursor,
@@ -88,32 +107,77 @@ export class FoldersService {
   }
 
   async getBreadcrumbs(userId: string, folderId: string) {
-    const folder = await this.getFolderOrThrow(folderId);
-    await requireAccess(this.prisma, userId, folder.dataRoomId, 'VIEWER');
+    const folder = await getFolderOrThrow(this.prisma, folderId);
+    const scope = folderScope(folder);
+    const level = await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
 
     const ancestorIds = folder.path.split('/').filter(Boolean);
 
-    const [ancestors, dataRoom] = await Promise.all([
+    // A VIEWER only reached this folder through a share somewhere in its
+    // chain - the room and any ancestor above that share boundary are
+    // resources they resolve to NONE on, so their names must not leak into
+    // the breadcrumb trail (and the room crumb must not link to `/`, which
+    // is always the caller's OWN room).
+    let visibleAncestorIds = ancestorIds;
+    let includeDataRoom = true;
+    if (level !== 'OWNER') {
+      const boundary = await resolveShareBoundary(
+        this.prisma,
+        userId,
+        scope.chain,
+      );
+      includeDataRoom = boundary?.type === 'DATAROOM';
+      if (!includeDataRoom) {
+        const boundaryIndex = boundary ? ancestorIds.indexOf(boundary.id) : -1;
+        visibleAncestorIds = ancestorIds.slice(
+          boundaryIndex >= 0 ? boundaryIndex : ancestorIds.length - 1,
+        );
+      }
+    }
+
+    const [ancestors, dataRoomName] = await Promise.all([
       this.prisma.folder.findMany({
-        where: { id: { in: ancestorIds } },
+        where: { id: { in: visibleAncestorIds } },
         select: { id: true, name: true },
       }),
-      this.prisma.dataRoom.findUniqueOrThrow({
-        where: { id: folder.dataRoomId },
-        select: { id: true, name: true },
-      }),
+      includeDataRoom
+        ? this.prisma.dataRoom
+            .findUniqueOrThrow({
+              where: { id: folder.dataRoomId },
+              select: { name: true },
+            })
+            .then((r) => r.name)
+        : Promise.resolve(null),
     ]);
     const nameById = new Map(ancestors.map((a) => [a.id, a.name]));
 
     return {
-      dataRoom,
-      folders: ancestorIds.map((id) => ({ id, name: nameById.get(id) ?? '' })),
+      dataRoomId: folder.dataRoomId,
+      dataRoomName,
+      folders: visibleAncestorIds.map((id) => ({
+        id,
+        name: nameById.get(id) ?? '',
+      })),
+      accessLevel: level,
     };
   }
 
   async rename(userId: string, folderId: string, dto: RenameFolderDto) {
-    const folder = await this.getFolderOrThrow(folderId);
-    await requireAccess(this.prisma, userId, folder.dataRoomId, 'OWNER');
+    const folder = await getFolderOrThrow(this.prisma, folderId);
+    const scope = dataRoomScope(folder.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'OWNER',
+    );
 
     await this.assertNameAvailable(
       folder.dataRoomId,
@@ -133,8 +197,18 @@ export class FoldersService {
     userId: string,
     folderId: string,
   ): Promise<DeletePreview> {
-    const folder = await this.getFolderOrThrow(folderId);
-    await requireAccess(this.prisma, userId, folder.dataRoomId, 'VIEWER');
+    const folder = await getFolderOrThrow(this.prisma, folderId);
+    // Delete-preview only ever backs the delete confirmation dialog, which
+    // only an OWNER can even open - a share never needs to see subtree
+    // counts/bytes for a mutation it can't perform.
+    const scope = dataRoomScope(folder.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'OWNER',
+    );
 
     const prefix = `${folder.path}%`;
 
@@ -160,8 +234,15 @@ export class FoldersService {
   }
 
   async remove(userId: string, folderId: string): Promise<void> {
-    const folder = await this.getFolderOrThrow(folderId);
-    await requireAccess(this.prisma, userId, folder.dataRoomId, 'OWNER');
+    const folder = await getFolderOrThrow(this.prisma, folderId);
+    const scope = dataRoomScope(folder.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'OWNER',
+    );
 
     const prefix = `${folder.path}%`;
 
@@ -184,17 +265,7 @@ export class FoldersService {
       return files.map((f) => f.storageKey);
     });
 
-    // Row deletion already committed; an orphaned bucket object on storage
-    // failure is an accepted MVP trade-off (apps/api/CLAUDE.md).
     await this.storage.removeObjects(deletedStorageKeys).catch(() => undefined);
-  }
-
-  private async getFolderOrThrow(id: string): Promise<Folder> {
-    const folder = await this.prisma.folder.findUnique({ where: { id } });
-    if (!folder) {
-      throw new NotFoundException('Folder not found');
-    }
-    return folder;
   }
 
   private async assertNameAvailable(

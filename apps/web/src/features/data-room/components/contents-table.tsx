@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
-import { getFileDownloadUrl, type FileItem, type FolderItem } from "@/features/data-room/api";
+import { getFileDownloadUrl, type AccessLevel, type FileItem, type FolderItem } from "@/features/data-room/api";
 import type { ContentsQuery } from "@/features/data-room/hooks";
 import { ContentsRowsSkeleton, ContentsTableSkeleton } from "@/features/data-room/components/contents-table-skeleton";
 import { DeleteFileDialog } from "@/features/data-room/components/delete-file-dialog";
@@ -20,22 +20,33 @@ import { MoveFileDialog } from "@/features/data-room/components/move-file-dialog
 import { RenameFileDialog } from "@/features/data-room/components/rename-file-dialog";
 import { RenameFolderDialog } from "@/features/data-room/components/rename-folder-dialog";
 import { useIntersectionObserver } from "@/features/data-room/use-intersection-observer";
+import type { ResourceType } from "@/features/sharing/api";
+import { ShareDialog } from "@/features/sharing/components/share-dialog";
 
 interface ContentsTableProps {
   dataRoomId: string;
   folderId: string | null;
   query: ContentsQuery;
+  accessLevel: AccessLevel;
   onCreateFolder: () => void;
   onUploadClick: () => void;
 }
 
-export function ContentsTable({ dataRoomId, folderId, query, onCreateFolder, onUploadClick }: ContentsTableProps) {
+interface ShareTarget {
+  resourceType: ResourceType;
+  resourceId: string;
+  resourceName: string;
+}
+
+export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCreateFolder, onUploadClick }: ContentsTableProps) {
   const navigate = useNavigate();
+  const canManage = accessLevel === "OWNER";
   const [renameTarget, setRenameTarget] = useState<FolderItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null);
   const [renameFileTarget, setRenameFileTarget] = useState<FileItem | null>(null);
   const [moveFileTarget, setMoveFileTarget] = useState<FileItem | null>(null);
   const [deleteFileTarget, setDeleteFileTarget] = useState<FileItem | null>(null);
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
 
   const downloadMutation = useMutation({
     mutationFn: (fileId: string) => getFileDownloadUrl(fileId),
@@ -75,7 +86,7 @@ export function ContentsTable({ dataRoomId, folderId, query, onCreateFolder, onU
   const items = data.pages.flatMap((page) => page.items);
 
   if (items.length === 0 && !hasNextPage) {
-    return <EmptyFolderState onCreateFolder={onCreateFolder} onUploadClick={onUploadClick} />;
+    return <EmptyFolderState canManage={canManage} onCreateFolder={onCreateFolder} onUploadClick={onUploadClick} />;
   }
 
   const canLoadMore = hasNextPage && !isFetchNextPageError;
@@ -97,18 +108,22 @@ export function ContentsTable({ dataRoomId, folderId, query, onCreateFolder, onU
               <FolderRow
                 key={item.id}
                 folder={item}
+                canManage={canManage}
                 onOpen={() => navigate(`/folder/${item.id}`)}
                 onRename={() => setRenameTarget(item)}
+                onShare={() => setShareTarget({ resourceType: "FOLDER", resourceId: item.id, resourceName: item.name })}
                 onDelete={() => setDeleteTarget(item)}
               />
             ) : (
               <FileRow
                 key={item.id}
                 file={item}
+                canManage={canManage}
                 downloadPending={downloadMutation.isPending && downloadMutation.variables === item.id}
                 onRename={() => setRenameFileTarget(item)}
                 onMove={() => setMoveFileTarget(item)}
                 onDownload={() => downloadMutation.mutate(item.id)}
+                onShare={() => setShareTarget({ resourceType: "FILE", resourceId: item.id, resourceName: item.name })}
                 onDelete={() => setDeleteFileTarget(item)}
               />
             )
@@ -171,19 +186,32 @@ export function ContentsTable({ dataRoomId, folderId, query, onCreateFolder, onU
         open={deleteFileTarget !== null}
         onOpenChange={(open) => !open && setDeleteFileTarget(null)}
       />
+      {shareTarget && (
+        <ShareDialog
+          resourceType={shareTarget.resourceType}
+          resourceId={shareTarget.resourceId}
+          resourceName={shareTarget.resourceName}
+          open={shareTarget !== null}
+          onOpenChange={(open) => !open && setShareTarget(null)}
+        />
+      )}
     </>
   );
 }
 
 function FolderRow({
   folder,
+  canManage,
   onOpen,
   onRename,
+  onShare,
   onDelete,
 }: {
   folder: FolderItem;
+  canManage: boolean;
   onOpen: () => void;
   onRename: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -197,7 +225,7 @@ function FolderRow({
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell className="text-muted-foreground">{formatDate(folder.createdAt)}</TableCell>
       <TableCell className="text-right">
-        <FolderRowMenu folderName={folder.name} onRename={onRename} onDelete={onDelete} />
+        {canManage && <FolderRowMenu folderName={folder.name} onRename={onRename} onShare={onShare} onDelete={onDelete} />}
       </TableCell>
     </TableRow>
   );
@@ -205,17 +233,21 @@ function FolderRow({
 
 function FileRow({
   file,
+  canManage,
   downloadPending,
   onRename,
   onMove,
   onDownload,
+  onShare,
   onDelete,
 }: {
   file: FileItem;
+  canManage: boolean;
   downloadPending: boolean;
   onRename: () => void;
   onMove: () => void;
   onDownload: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -231,10 +263,12 @@ function FileRow({
       <TableCell className="text-right">
         <FileRowMenu
           fileName={file.name}
+          canManage={canManage}
           downloadPending={downloadPending}
           onRename={onRename}
           onMove={onMove}
           onDownload={onDownload}
+          onShare={onShare}
           onDelete={onDelete}
         />
       </TableCell>

@@ -1,11 +1,11 @@
 import { useParams } from "react-router-dom";
 
 import { AppHeader } from "@/components/app-header";
+import { PageLoadError } from "@/components/page-load-error";
 import { isNotFoundError } from "@/lib/api";
 import { DataRoomSkeleton } from "@/features/data-room/components/data-room-skeleton";
 import { FolderExplorer } from "@/features/data-room/components/folder-explorer";
 import { FolderNotFound } from "@/features/data-room/components/folder-not-found";
-import { PageLoadError } from "@/features/data-room/components/page-load-error";
 import { useBreadcrumbs } from "@/features/data-room/hooks";
 
 export function FolderPage() {
@@ -28,10 +28,11 @@ export function FolderPage() {
 
         {breadcrumbsQuery.isSuccess && id && (
           <FolderExplorer
-            dataRoomId={breadcrumbsQuery.data.dataRoom.id}
-            dataRoomName={breadcrumbsQuery.data.dataRoom.name}
+            dataRoomId={breadcrumbsQuery.data.dataRoomId}
+            dataRoomName={breadcrumbsQuery.data.dataRoomName}
             folderId={id}
             breadcrumbFolders={breadcrumbsQuery.data.folders}
+            accessLevel={breadcrumbsQuery.data.accessLevel}
           />
         )}
       </main>

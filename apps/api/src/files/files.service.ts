@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { StorageService } from '@/storage/storage.service';
-import { requireAccess } from '@/common/access';
+import {
+  dataRoomScope,
+  fileScope,
+  getFileOrThrow,
+  requireAccess,
+} from '@/common/access';
 import { resolveName } from '@/common/resolve-name';
 import { toNameLower } from '@/common/name-lower';
 import { UploadIntentDto } from './dto/upload-intent.dto';
@@ -28,7 +33,14 @@ export class FilesService {
   ) {}
 
   async createUploadIntent(userId: string, dto: UploadIntentDto) {
-    await requireAccess(this.prisma, userId, dto.dataRoomId, 'OWNER');
+    const roomScope = dataRoomScope(dto.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      roomScope.dataRoomId,
+      roomScope.chain,
+      'OWNER',
+    );
 
     let folderId: string | null = null;
     if (dto.folderId) {
@@ -78,7 +90,14 @@ export class FilesService {
     if (!file) {
       throw new NotFoundException('File not found');
     }
-    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+    const completeScope = dataRoomScope(file.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      completeScope.dataRoomId,
+      completeScope.chain,
+      'OWNER',
+    );
 
     return this.prisma.file.update({
       where: { id: fileId },
@@ -88,8 +107,15 @@ export class FilesService {
   }
 
   async rename(userId: string, fileId: string, dto: RenameFileDto) {
-    const file = await this.getFileOrThrow(fileId);
-    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const renameScope = dataRoomScope(file.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      renameScope.dataRoomId,
+      renameScope.chain,
+      'OWNER',
+    );
 
     const name = await resolveName(
       this.prisma,
@@ -106,8 +132,15 @@ export class FilesService {
   }
 
   async move(userId: string, fileId: string, dto: MoveFileDto) {
-    const file = await this.getFileOrThrow(fileId);
-    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const moveScope = dataRoomScope(file.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      moveScope.dataRoomId,
+      moveScope.chain,
+      'OWNER',
+    );
 
     const targetFolderId = dto.targetFolderId ?? null;
     if (targetFolderId !== null) {
@@ -135,8 +168,15 @@ export class FilesService {
   }
 
   async remove(userId: string, fileId: string): Promise<void> {
-    const file = await this.getFileOrThrow(fileId);
-    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const removeScope = dataRoomScope(file.dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      removeScope.dataRoomId,
+      removeScope.chain,
+      'OWNER',
+    );
 
     await this.prisma.file.delete({ where: { id: file.id } });
     // Row is already gone; an orphaned bucket object on storage failure is
@@ -148,21 +188,20 @@ export class FilesService {
     userId: string,
     fileId: string,
   ): Promise<{ url: string }> {
-    const file = await this.getFileOrThrow(fileId);
-    await requireAccess(this.prisma, userId, file.dataRoomId, 'VIEWER');
+    const file = await getFileOrThrow(this.prisma, fileId);
+    const scope = await fileScope(this.prisma, file);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
 
     const url = await this.storage.createDownloadUrl(
       file.storageKey,
       file.name,
     );
     return { url };
-  }
-
-  private async getFileOrThrow(id: string) {
-    const file = await this.prisma.file.findUnique({ where: { id } });
-    if (!file) {
-      throw new NotFoundException('File not found');
-    }
-    return file;
   }
 }
