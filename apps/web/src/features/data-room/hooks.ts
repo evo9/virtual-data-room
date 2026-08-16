@@ -10,10 +10,11 @@ import {
   fetchFolderContents,
   fetchFolders,
 } from "@/features/data-room/api";
-import type { ContentItem, DataRoom, Page } from "@/features/data-room/api";
+import type { ContentItem, DataRoom, FolderNode, Page } from "@/features/data-room/api";
 
 export type ContentsQuery = UseInfiniteQueryResult<InfiniteData<Page<ContentItem>>, unknown>;
 export type DataRoomsQuery = UseInfiniteQueryResult<InfiniteData<Page<DataRoom>>, unknown>;
+export type FoldersQuery = UseInfiniteQueryResult<InfiniteData<Page<FolderNode>>, unknown>;
 
 export const dataRoomsKey = ["data-rooms"] as const;
 
@@ -83,10 +84,12 @@ export function useDeletePreview(folderId: string | null) {
 
 // Folder levels stay fresh for a minute so re-expanding cached branches is
 // instant; folder mutations invalidate the whole `foldersKeyPrefix` scope.
-export function useFolders(dataRoomId: string, parentId: string | null, enabled: boolean) {
-  return useQuery({
+export function useFolders(dataRoomId: string, parentId: string | null, enabled: boolean): FoldersQuery {
+  return useInfiniteQuery({
     queryKey: foldersKey(dataRoomId, parentId),
-    queryFn: () => fetchFolders(dataRoomId, parentId),
+    queryFn: ({ pageParam }) => fetchFolders(dataRoomId, parentId, { cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
     staleTime: 60_000,
   });

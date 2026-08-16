@@ -11,6 +11,7 @@ import { ContentItem, fetchContents } from '@/common/contents';
 import {
   decodeContentsCursor,
   decodeDataRoomsCursor,
+  decodeFolderCursor,
   encodeCursor,
   Page,
 } from '@/common/pagination';
@@ -129,7 +130,8 @@ export class DataRoomsService {
     userId: string,
     dataRoomId: string,
     parentId: string | null,
-  ): Promise<FolderNode[]> {
+    query: PaginationQueryDto,
+  ): Promise<Page<FolderNode>> {
     const scope = parentId
       ? folderScope(await getFolderOrThrow(this.prisma, parentId))
       : dataRoomScope(dataRoomId);
@@ -143,16 +145,46 @@ export class DataRoomsService {
       scope.chain,
       'VIEWER',
     );
+    const cursor = parseCursor(decodeFolderCursor, query.cursor);
+    const limit = query.limit;
+    const where = cursor
+      ? {
+          dataRoomId,
+          parentId,
+          OR: [
+            { nameLower: { gt: cursor.n } },
+            { nameLower: cursor.n, id: { gt: cursor.i } },
+          ],
+        }
+      : { dataRoomId, parentId };
+
     const rows = await this.prisma.folder.findMany({
-      where: { dataRoomId, parentId },
-      select: { id: true, name: true, _count: { select: { children: true } } },
+      where,
+      select: {
+        id: true,
+        name: true,
+        nameLower: true,
+        _count: { select: { children: true } },
+      },
       orderBy: [{ nameLower: 'asc' }, { id: 'asc' }],
-      take: 1000,
+      take: limit + 1,
     });
-    return rows.map((row) => ({
+
+    const page = rows.slice(0, limit);
+    const items = page.map((row) => ({
       id: row.id,
       name: row.name,
       hasChildren: row._count.children > 0,
     }));
+
+    if (rows.length <= limit) {
+      return { items, nextCursor: null };
+    }
+
+    const last = page[page.length - 1];
+    return {
+      items,
+      nextCursor: encodeCursor({ t: 'folder', n: last.nameLower, i: last.id }),
+    };
   }
 }
