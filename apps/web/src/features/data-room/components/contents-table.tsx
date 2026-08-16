@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
+import { useSectionPrefix, withSection } from "@/lib/section";
 import { getFileDownloadUrl, type AccessLevel, type FileItem, type FolderItem } from "@/features/data-room/api";
 import type { ContentsQuery } from "@/features/data-room/hooks";
 import { ContentsRowsSkeleton, ContentsTableSkeleton } from "@/features/data-room/components/contents-table-skeleton";
@@ -40,6 +41,7 @@ interface ShareTarget {
 
 export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCreateFolder, onUploadClick }: ContentsTableProps) {
   const navigate = useNavigate();
+  const prefix = useSectionPrefix();
   const canManage = accessLevel === "OWNER";
   const [renameTarget, setRenameTarget] = useState<FolderItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null);
@@ -109,7 +111,7 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
                 key={item.id}
                 folder={item}
                 canManage={canManage}
-                onOpen={() => navigate(`/folder/${item.id}`)}
+                onOpen={() => navigate(withSection(prefix, `/folder/${item.id}`))}
                 onRename={() => setRenameTarget(item)}
                 onShare={() => setShareTarget({ resourceType: "FOLDER", resourceId: item.id, resourceName: item.name })}
                 onDelete={() => setDeleteTarget(item)}
@@ -121,8 +123,10 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
                 canManage={canManage}
                 downloadPending={downloadMutation.isPending && downloadMutation.variables === item.id}
                 onOpen={() =>
-                  navigate(`/file/${item.id}`, {
-                    state: { from: folderId ? `/folder/${folderId}` : `/room/${dataRoomId}` },
+                  navigate(withSection(prefix, `/file/${item.id}`), {
+                    state: {
+                      from: withSection(prefix, folderId ? `/folder/${folderId}` : `/room/${dataRoomId}`),
+                    },
                   })
                 }
                 onRename={() => setRenameFileTarget(item)}

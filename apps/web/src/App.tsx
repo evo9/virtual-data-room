@@ -11,6 +11,12 @@ import { RoomPage } from "@/features/data-room/room-page";
 import { PublicFileViewPage } from "@/features/sharing/public-file-view-page";
 import { PublicSharePage } from "@/features/sharing/public-share-page";
 import { SharedWithMePage } from "@/features/sharing/shared-with-me-page";
+import { useSectionPrefix } from "@/lib/section";
+
+function NotFoundRedirect() {
+  const prefix = useSectionPrefix();
+  return <Navigate to={prefix || "/"} replace />;
+}
 
 function App() {
   return (
@@ -72,10 +78,34 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/shared-with-me/room/:id"
+          element={
+            <ProtectedRoute>
+              <RoomPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shared-with-me/folder/:id"
+          element={
+            <ProtectedRoute>
+              <FolderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shared-with-me/file/:id"
+          element={
+            <ProtectedRoute>
+              <FilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/share/:token" element={<PublicSharePage />} />
         <Route path="/share/:token/folders/:folderId" element={<PublicSharePage />} />
         <Route path="/share/:token/files/:fileId" element={<PublicFileViewPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundRedirect />} />
       </Routes>
     </AuthProvider>
   );

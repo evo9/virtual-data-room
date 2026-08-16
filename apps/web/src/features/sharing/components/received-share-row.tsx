@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { useSectionPrefix, withSection } from "@/lib/section";
 import { getFileDownloadUrl } from "@/features/data-room/api";
 import type { ReceivedShare } from "@/features/sharing/api";
 
@@ -21,6 +22,7 @@ const RESOURCE_ICON = {
 
 export function ReceivedShareRow({ share }: ReceivedShareRowProps) {
   const navigate = useNavigate();
+  const prefix = useSectionPrefix();
   const Icon = RESOURCE_ICON[share.resourceType];
 
   const downloadMutation = useMutation({
@@ -59,12 +61,14 @@ export function ReceivedShareRow({ share }: ReceivedShareRowProps) {
     </>
   );
 
-  const target =
+  const target = withSection(
+    prefix,
     share.resourceType === "DATAROOM"
       ? `/room/${share.resourceId}`
       : share.resourceType === "FOLDER"
         ? `/folder/${share.resourceId}`
-        : `/file/${share.resourceId}`;
+        : `/file/${share.resourceId}`
+  );
 
   function open() {
     navigate(target, share.resourceType === "FILE" ? { state: { from: "/shared-with-me" } } : undefined);
