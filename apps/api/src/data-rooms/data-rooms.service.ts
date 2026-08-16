@@ -20,6 +20,12 @@ export interface DataRoomSummary {
   createdAt: Date;
 }
 
+export interface FolderNode {
+  id: string;
+  name: string;
+  hasChildren: boolean;
+}
+
 @Injectable()
 export class DataRoomsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -82,5 +88,24 @@ export class DataRoomsService {
       cursor,
       limit: query.limit,
     });
+  }
+
+  async getFolders(
+    userId: string,
+    dataRoomId: string,
+    parentId: string | null,
+  ): Promise<FolderNode[]> {
+    await requireAccess(this.prisma, userId, dataRoomId, 'VIEWER');
+    const rows = await this.prisma.folder.findMany({
+      where: { dataRoomId, parentId },
+      select: { id: true, name: true, _count: { select: { children: true } } },
+      orderBy: [{ nameLower: 'asc' }, { id: 'asc' }],
+      take: 1000,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      hasChildren: row._count.children > 0,
+    }));
   }
 }

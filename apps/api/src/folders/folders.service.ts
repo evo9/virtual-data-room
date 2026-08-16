@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Folder } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { StorageService } from '@/storage/storage.service';
 import { requireAccess } from '@/common/access';
 import { ContentItem, fetchContents } from '@/common/contents';
 import { decodeContentsCursor } from '@/common/pagination';
@@ -30,13 +31,12 @@ export interface DeletePreview {
   totalSize: number;
 }
 
-export interface DeleteResult {
-  deletedStorageKeys: string[];
-}
-
 @Injectable()
 export class FoldersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(userId: string, dto: CreateFolderDto) {
     await requireAccess(this.prisma, userId, dto.dataRoomId, 'OWNER');
@@ -159,13 +159,13 @@ export class FoldersService {
     };
   }
 
-  async remove(userId: string, folderId: string): Promise<DeleteResult> {
+  async remove(userId: string, folderId: string): Promise<void> {
     const folder = await this.getFolderOrThrow(folderId);
     await requireAccess(this.prisma, userId, folder.dataRoomId, 'OWNER');
 
     const prefix = `${folder.path}%`;
 
-    return this.prisma.$transaction(async (tx) => {
+    const deletedStorageKeys = await this.prisma.$transaction(async (tx) => {
       const subtreeFolders = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Folder" WHERE path LIKE ${prefix}
       `;
@@ -181,8 +181,12 @@ export class FoldersService {
       });
       await tx.folder.deleteMany({ where: { id: { in: subtreeIds } } });
 
-      return { deletedStorageKeys: files.map((f) => f.storageKey) };
+      return files.map((f) => f.storageKey);
     });
+
+    // Row deletion already committed; an orphaned bucket object on storage
+    // failure is an accepted MVP trade-off (apps/api/CLAUDE.md).
+    await this.storage.removeObjects(deletedStorageKeys).catch(() => undefined);
   }
 
   private async getFolderOrThrow(id: string): Promise<Folder> {

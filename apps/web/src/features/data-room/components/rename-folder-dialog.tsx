@@ -15,7 +15,7 @@ import {
 import { FormField } from "@/components/form-field";
 import { getErrorMessage } from "@/lib/api";
 import { renameFolder, type FolderItem } from "@/features/data-room/api";
-import { breadcrumbsKey, contentsKey } from "@/features/data-room/hooks";
+import { breadcrumbsKey, contentsKey, foldersKeyPrefix } from "@/features/data-room/hooks";
 import { folderNameSchema, type FolderNameValues } from "@/features/data-room/schemas";
 
 interface RenameFolderDialogProps {
@@ -48,6 +48,7 @@ export function RenameFolderDialog({ folder, listingFolderId, open, onOpenChange
       toast.success("Folder renamed");
       queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
       queryClient.invalidateQueries({ queryKey: breadcrumbsKey(folder!.id) });
+      queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);
     },
     onError: (error) => {

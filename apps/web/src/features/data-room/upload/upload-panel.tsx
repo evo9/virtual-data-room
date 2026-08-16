@@ -1,8 +1,14 @@
+import { useEffect } from "react";
 import { XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { UploadTask } from "@/features/data-room/upload/use-upload-queue";
 import { UploadTaskRow } from "@/features/data-room/upload/upload-task-row";
+
+// Auto-dismiss delay for a fully successful batch. Long enough to read the
+// final state, short enough not to linger; batches with errors never
+// auto-dismiss - the Retry button must stay visible until acted on.
+const AUTO_DISMISS_MS = 5000;
 
 interface UploadPanelProps {
   tasks: UploadTask[];
@@ -11,6 +17,14 @@ interface UploadPanelProps {
 }
 
 export function UploadPanel({ tasks, onRetry, onClose }: UploadPanelProps) {
+  const allDone = tasks.length > 0 && tasks.every((task) => task.status === "done");
+
+  useEffect(() => {
+    if (!allDone) return;
+    const timer = setTimeout(onClose, AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [allDone, onClose]);
+
   if (tasks.length === 0) return null;
 
   const isActive = tasks.some((task) => task.status === "queued" || task.status === "uploading");

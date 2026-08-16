@@ -15,7 +15,7 @@ import {
 import { FormField } from "@/components/form-field";
 import { getErrorMessage } from "@/lib/api";
 import { createFolder } from "@/features/data-room/api";
-import { contentsKey } from "@/features/data-room/hooks";
+import { contentsKey, foldersKeyPrefix } from "@/features/data-room/hooks";
 import { folderNameSchema, type FolderNameValues } from "@/features/data-room/schemas";
 
 interface CreateFolderDialogProps {
@@ -48,6 +48,7 @@ export function CreateFolderDialog({ open, onOpenChange, dataRoomId, parentId }:
     onSuccess: () => {
       toast.success("Folder created");
       queryClient.invalidateQueries({ queryKey: contentsKey(parentId) });
+      queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);
     },
     onError: (error) => {

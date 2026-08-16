@@ -6,6 +6,19 @@ import { requireAccess } from '@/common/access';
 import { resolveName } from '@/common/resolve-name';
 import { toNameLower } from '@/common/name-lower';
 import { UploadIntentDto } from './dto/upload-intent.dto';
+import { RenameFileDto } from './dto/rename-file.dto';
+import { MoveFileDto } from './dto/move-file.dto';
+
+const FILE_SELECT = {
+  id: true,
+  name: true,
+  folderId: true,
+  dataRoomId: true,
+  size: true,
+  mimeType: true,
+  uploadedAt: true,
+  createdAt: true,
+} as const;
 
 @Injectable()
 export class FilesService {
@@ -72,5 +85,84 @@ export class FilesService {
       data: { uploadedAt: new Date() },
       select: { id: true, name: true, folderId: true },
     });
+  }
+
+  async rename(userId: string, fileId: string, dto: RenameFileDto) {
+    const file = await this.getFileOrThrow(fileId);
+    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+
+    const name = await resolveName(
+      this.prisma,
+      { dataRoomId: file.dataRoomId, folderId: file.folderId },
+      dto.name,
+      file.id,
+    );
+
+    return this.prisma.file.update({
+      where: { id: file.id },
+      data: { name, nameLower: toNameLower(name) },
+      select: FILE_SELECT,
+    });
+  }
+
+  async move(userId: string, fileId: string, dto: MoveFileDto) {
+    const file = await this.getFileOrThrow(fileId);
+    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+
+    const targetFolderId = dto.targetFolderId ?? null;
+    if (targetFolderId !== null) {
+      const targetFolder = await this.prisma.folder.findUnique({
+        where: { id: targetFolderId },
+        select: { dataRoomId: true },
+      });
+      if (!targetFolder || targetFolder.dataRoomId !== file.dataRoomId) {
+        throw new NotFoundException('Folder not found');
+      }
+    }
+
+    const name = await resolveName(
+      this.prisma,
+      { dataRoomId: file.dataRoomId, folderId: targetFolderId },
+      file.name,
+      file.id,
+    );
+
+    return this.prisma.file.update({
+      where: { id: file.id },
+      data: { folderId: targetFolderId, name, nameLower: toNameLower(name) },
+      select: FILE_SELECT,
+    });
+  }
+
+  async remove(userId: string, fileId: string): Promise<void> {
+    const file = await this.getFileOrThrow(fileId);
+    await requireAccess(this.prisma, userId, file.dataRoomId, 'OWNER');
+
+    await this.prisma.file.delete({ where: { id: file.id } });
+    // Row is already gone; an orphaned bucket object on storage failure is
+    // an accepted MVP trade-off (apps/api/CLAUDE.md), not a reason to 500.
+    await this.storage.removeObject(file.storageKey).catch(() => undefined);
+  }
+
+  async getDownloadUrl(
+    userId: string,
+    fileId: string,
+  ): Promise<{ url: string }> {
+    const file = await this.getFileOrThrow(fileId);
+    await requireAccess(this.prisma, userId, file.dataRoomId, 'VIEWER');
+
+    const url = await this.storage.createDownloadUrl(
+      file.storageKey,
+      file.name,
+    );
+    return { url };
+  }
+
+  private async getFileOrThrow(id: string) {
+    const file = await this.prisma.file.findUnique({ where: { id } });
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+    return file;
   }
 }

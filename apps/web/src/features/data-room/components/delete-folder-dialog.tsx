@@ -13,7 +13,7 @@ import {
 import { getErrorMessage } from "@/lib/api";
 import { formatBytes } from "@/lib/format";
 import { deleteFolder, type DeletePreview, type FolderItem } from "@/features/data-room/api";
-import { contentsKey, useDeletePreview } from "@/features/data-room/hooks";
+import { contentsKey, foldersKeyPrefix, useDeletePreview } from "@/features/data-room/hooks";
 
 interface DeleteFolderDialogProps {
   folder: FolderItem | null;
@@ -31,6 +31,7 @@ export function DeleteFolderDialog({ folder, listingFolderId, open, onOpenChange
     onSuccess: () => {
       toast.success(`"${folder?.name}" deleted`);
       queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
+      queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);
     },
     onError: (error) => {

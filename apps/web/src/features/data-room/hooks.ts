@@ -8,6 +8,7 @@ import {
   fetchDataRooms,
   fetchDeletePreview,
   fetchFolderContents,
+  fetchFolders,
 } from "@/features/data-room/api";
 import type { ContentItem, DataRoom, Page } from "@/features/data-room/api";
 
@@ -26,6 +27,12 @@ export function breadcrumbsKey(folderId: string) {
 
 export function deletePreviewKey(folderId: string) {
   return ["delete-preview", folderId] as const;
+}
+
+export const foldersKeyPrefix = ["folders"] as const;
+
+export function foldersKey(dataRoomId: string, parentId: string | null) {
+  return [...foldersKeyPrefix, dataRoomId, parentId ?? "root"] as const;
 }
 
 export function useDataRooms(): DataRoomsQuery {
@@ -71,5 +78,16 @@ export function useDeletePreview(folderId: string | null) {
     queryKey: deletePreviewKey(folderId ?? "none"),
     queryFn: () => fetchDeletePreview(folderId!),
     enabled: folderId !== null,
+  });
+}
+
+// Folder levels stay fresh for a minute so re-expanding cached branches is
+// instant; folder mutations invalidate the whole `foldersKeyPrefix` scope.
+export function useFolders(dataRoomId: string, parentId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: foldersKey(dataRoomId, parentId),
+    queryFn: () => fetchFolders(dataRoomId, parentId),
+    enabled,
+    staleTime: 60_000,
   });
 }
