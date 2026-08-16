@@ -58,6 +58,7 @@ model File {
   size       Int
   mimeType   String
   storageKey String
+  uploadedAt DateTime?
   createdAt  DateTime @default(now())
 
   @@index([dataRoomId, folderId])

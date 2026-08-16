@@ -118,6 +118,7 @@ export async function fetchContents(
       where: {
         dataRoomId,
         folderId: parentFolderId,
+        uploadedAt: { not: null },
         ...keysetWhere(cursor),
       },
       select: FILE_SELECT,
@@ -159,7 +160,11 @@ export async function fetchContents(
   }
 
   const fileRows = await prisma.file.findMany({
-    where: { dataRoomId, folderId: parentFolderId },
+    where: {
+      dataRoomId,
+      folderId: parentFolderId,
+      uploadedAt: { not: null },
+    },
     select: FILE_SELECT,
     orderBy: [{ nameLower: 'asc' }, { id: 'asc' }],
     take: remaining + 1,

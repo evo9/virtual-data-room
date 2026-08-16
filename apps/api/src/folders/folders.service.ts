@@ -148,7 +148,7 @@ export class FoldersService {
         SELECT COUNT(f.*) AS "fileCount", COALESCE(SUM(f.size), 0) AS "totalSize"
         FROM "File" f
         JOIN "Folder" fo ON fo.id = f."folderId"
-        WHERE fo.path LIKE ${prefix}
+        WHERE fo.path LIKE ${prefix} AND f."uploadedAt" IS NOT NULL
       `,
     ]);
 

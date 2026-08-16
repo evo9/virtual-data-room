@@ -18,9 +18,10 @@ interface ContentsTableProps {
   folderId: string | null;
   query: ContentsQuery;
   onCreateFolder: () => void;
+  onUploadClick: () => void;
 }
 
-export function ContentsTable({ folderId, query, onCreateFolder }: ContentsTableProps) {
+export function ContentsTable({ folderId, query, onCreateFolder, onUploadClick }: ContentsTableProps) {
   const navigate = useNavigate();
   const [renameTarget, setRenameTarget] = useState<FolderItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null);
@@ -53,7 +54,7 @@ export function ContentsTable({ folderId, query, onCreateFolder }: ContentsTable
   const items = data.pages.flatMap((page) => page.items);
 
   if (items.length === 0 && !hasNextPage) {
-    return <EmptyFolderState onCreateFolder={onCreateFolder} />;
+    return <EmptyFolderState onCreateFolder={onCreateFolder} onUploadClick={onUploadClick} />;
   }
 
   const canLoadMore = hasNextPage && !isFetchNextPageError;
