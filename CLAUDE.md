@@ -33,7 +33,6 @@ cd apps/api
 npm run start:dev        # dev server
 npx prisma migrate dev   # create/apply migration locally
 npx prisma migrate deploy # apply on prod (also runs in start script)
-npm run seed             # test user + demo data room
 npm run build && npm run lint
 
 # web

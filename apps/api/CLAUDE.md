@@ -57,6 +57,5 @@ Prefer extracting pure decision logic so it tests without a DB. No testcontainer
 ```bash
 npm run start:dev
 npx prisma migrate dev
-npm run seed
 npm run build && npm run lint && npm test
 ```

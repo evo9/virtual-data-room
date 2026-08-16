@@ -30,15 +30,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [meQuery.errorUpdatedAt, isSessionError]);
 
-  const login = useCallback((token: string) => {
-    setToken(token);
-    setHasToken(true);
-  }, []);
+  // Query keys are not scoped by user, so any identity change must drop the
+  // whole cache - otherwise the next account sees the previous one's data.
+  const login = useCallback(
+    (token: string) => {
+      queryClient.clear();
+      setToken(token);
+      setHasToken(true);
+    },
+    [queryClient]
+  );
 
   const logout = useCallback(() => {
     clearToken();
     setHasToken(false);
-    queryClient.removeQueries({ queryKey: authMeKey });
+    queryClient.clear();
     navigate("/login", { replace: true });
   }, [queryClient, navigate]);
 
