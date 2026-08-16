@@ -25,11 +25,14 @@ model DataRoom {
   createdAt DateTime @default(now())
   folders   Folder[]
   files     File[]
+
+  @@index([ownerId, createdAt, id])
 }
 
 model Folder {
   id         String   @id @default(uuid())
   name       String
+  nameLower  String
   dataRoomId String
   dataRoom   DataRoom @relation(fields: [dataRoomId], references: [id])
   parentId   String?
@@ -40,12 +43,14 @@ model Folder {
   files      File[]
 
   @@index([dataRoomId, parentId])
+  @@index([dataRoomId, parentId, nameLower, id])
   @@index([path])
 }
 
 model File {
   id         String   @id @default(uuid())
   name       String
+  nameLower  String
   dataRoomId String
   dataRoom   DataRoom @relation(fields: [dataRoomId], references: [id])
   folderId   String?
@@ -56,6 +61,7 @@ model File {
   createdAt  DateTime @default(now())
 
   @@index([dataRoomId, folderId])
+  @@index([dataRoomId, folderId, nameLower, id])
 }
 
 enum ShareResourceType {

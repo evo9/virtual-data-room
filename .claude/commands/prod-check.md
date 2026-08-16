@@ -45,6 +45,15 @@ Expect a token. A protected endpoint without a token must return 401.
 
 Register -> create nested folders -> upload several PDFs (watch per-file progress) -> rename/move/delete -> share a folder via public link -> open in incognito, view a PDF -> revoke -> refresh incognito (clear "access revoked" state). Browser console: no errors, no red requests.
 
-## Step 6: Report
+## Step 6: Known environment traps
+
+If a check fails, map the symptom before guessing:
+
+- `prepared statement "s0" already exists` (42P05) on any query -> `DATABASE_URL` is the Supabase pooler (6543) without `?pgbouncer=true&connection_limit=1`. Env fix, not a code fix.
+- `EADDRINUSE :::3000` -> another process already listens locally; not an app defect.
+- CORS error only on prod -> `CORS_ORIGIN` missing the deployed Vercel domain, or the storage bucket lacks CORS for direct browser uploads.
+- 500 on every request right after a schema change -> migration not applied on the prod database (`prisma migrate deploy` runs in the `start` script; check the deploy log).
+
+## Step 7: Report
 
 Table of checks with pass/fail. For any failure: the exact command/step, the response, and the most likely fix (CORS origin env, bucket CORS, sleeping instance, missing migration).

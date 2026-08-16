@@ -22,7 +22,7 @@ export function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "" },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
 
   const mutation = useMutation({
@@ -83,6 +83,16 @@ export function RegisterPage() {
           disabled={mutation.isPending}
           error={errors.password?.message}
           {...register("password")}
+        />
+
+        <FormField
+          id="confirmPassword"
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          disabled={mutation.isPending}
+          error={errors.confirmPassword?.message}
+          {...register("confirmPassword")}
         />
 
         <Button type="submit" disabled={mutation.isPending}>

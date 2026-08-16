@@ -36,7 +36,7 @@ If the user names files or a module, review those. Otherwise infer from context:
 
 ## Step 2 - Run the checklist
 
-### 🔴 CRITICAL - access control and data safety
+### 🔴 CRITICAL - access control, data safety, and scale
 
 Showstoppers. Must be fixed before merge.
 
@@ -73,13 +73,21 @@ An id from another data room passed alongside a valid token must yield 404. If a
 - `Folder.path` built from the parent's path on create; `parentId` (and move target folder) verified to belong to the same data room.
 - Folder rename conflict among siblings -> 409 with a message the UI can show.
 
+#### C7. Unbounded list queries
+Every listing endpoint is paginated (keyset, `{ items, nextCursor }`, `take: limit + 1`). Grep `findMany` across `apps/api/src`: any call in a listing path without `take` is a showstopper - it becomes minutes of latency and tens of MB of JSON at 100k files, and it contradicts the README's own scaling answer. Exceptions: breadcrumbs (bounded by tree depth) and aggregates (`delete-preview`). Also flag: offset/`skip` pagination instead of keyset, `COUNT(*)` over the whole data room in a listing response, a cursor over a non-unique column alone (must be `(nameLower, id)`), re-sorting a page in JS after the query, and a malformed cursor answered with 500 or a silent reset to page one instead of 400.
+
 ### 🟡 WARNING - UX contract and correctness (assignment priority #1)
 
 #### W1. States
 Every list: loading skeleton + designed empty state (no blank tables, no flash of empty). Every mutation: success toast and error toast with the API message. Folder delete confirmation shows the delete-preview counts ("3 папки, 12 файлов, 48 МБ"), not a generic "are you sure".
 
+**Dead ends are findings.** For every rendered branch ask "what does the user click here?" - an empty list must offer the create action, a failed load must offer Retry, a missing resource must offer a way back. A branch that only renders a sentence of text (e.g. "No data room found for your account.") strands the user and counts as a W, not an S. Also check the mirror case on the API side: if the UI offers no way to reach a state, make sure the backend can't leave the user in it (a user with no data room must get one on registration).
+
 #### W2. Upload UX
 Per-file progress via XHR (`xhr.upload.onprogress`); parallelism bounded (3-4); failed upload shows an error status + retry, never silent; non-PDF rejected client-side before any request; queued files visible.
+
+#### W2b. Pagination in the UI
+Lists use `useInfiniteQuery`, not a plain `useQuery` that assumes one response holds everything. Next page loads via an IntersectionObserver sentinel plus a visible "Load more" fallback; skeleton rows render *below* existing rows (the table never collapses to a full skeleton on `isFetchingNextPage`); a failed next-page fetch keeps loaded pages on screen with a retry affordance; the empty state shows only for a genuinely empty first page.
 
 #### W3. Query invalidation
 TanStack Query keys invalidated after every mutation - both source and target folder on move. Stale lists after an operation are a W, not an S.
@@ -92,6 +100,9 @@ Central interceptor: 401 -> logout + redirect; API error messages surface in toa
 
 #### W6. Forms
 Forms and input dialogs use react-hook-form + zod; validation errors render inline under the field (via `FormField`), not in a toast; `noValidate` on the form. Flag hand-rolled `useState` per field with manual validation, a toast used for field-level errors, and deprecated React types (`FormEvent`, `FormEventHandler` - use `SubmitEvent` etc.).
+
+#### W6b. Conventional form UX
+Sign-up has password confirmation (client-side only - never in the DTO or the request body); `autocomplete` attributes are correct (`new-password` vs `current-password`); first field autofocused. Missing conventions the assignment didn't enumerate still count - reviewers read them as an unfinished form.
 
 #### W7. Component shape
 No prop-flag components: if callers differ in fields or behaviour, they get separate components sharing a presentational shell. Optional props that serve exactly one caller (`name?` + `onNameChange?` with `{cond && <field/>}` inside) are a finding.

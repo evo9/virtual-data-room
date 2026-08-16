@@ -8,6 +8,8 @@ UX and polish are evaluation priority #1 and #2 - the frontend is where the assi
 
 - **shadcn/ui components as-is**; do not hand-roll dialogs, dropdowns, toasts. Toasts via sonner.
 - **TanStack Query for all server state.** After mutations invalidate the affected folder keys (both source and target on move). No manual refetch spaghetti, no polling.
+- **Lists are paginated**: server list endpoints return `{ items, nextCursor }`, so the client uses `useInfiniteQuery` (never a plain `useQuery` that assumes one response holds everything). Render `data.pages.flatMap(p => p.items)`. Load the next page via an IntersectionObserver sentinel **and** a visible "Load more" button as a keyboard/fallback path. While fetching the next page show skeleton rows *below* the existing rows - the loaded table never collapses back to a full-page skeleton, and a failed next-page fetch never discards what's already on screen.
+- **No dead ends.** Every state a user can land in must offer the next action: an empty list gets a create action, a failed load gets Retry, a missing/forbidden resource gets a link back. A screen that only states a fact ("No data room found for your account.") is a defect - the user is stuck with no way forward, and that is exactly what the assignment's "edge cases and error states" criterion is about. Ask of every branch: *what does the user click here?*
 - **Every list has a loading skeleton and an empty state** (empty folder says "перетащите файлы сюда"-style guidance, not a blank table). Every mutation shows a toast on success and on error.
 - **API errors centrally:** one client with an interceptor - attach JWT, on 401 logout + redirect to /login, on other errors surface the API message in a toast. 404 on a deep link -> "not found or no access" page.
 - **Routing:** `/login`, `/register`, `/folder/:id`, `/file/:id`, `/share/:token`, "Shared with me". Deep links work and survive F5.
@@ -24,6 +26,7 @@ UX and polish are evaluation priority #1 and #2 - the frontend is where the assi
 - Errors render **inline under the field** via the shared `FormField` component (label + input + `text-destructive` message, `aria-invalid` / `aria-describedby`), not as a toast. Toasts are for the request result (server error, success), not for field validation.
 - `noValidate` on the `<form>` - zod owns validation, so browser tooltips don't compete with it.
 - The backend stays the source of truth: client schemas mirror the DTO constraints, they don't replace them. A server error message still goes to a toast.
+- **Conventional form UX is expected even when the assignment doesn't spell it out:** password confirmation on sign-up (client-side only - the second field never reaches the API or a DTO), correct `autocomplete` attributes (`name`, `email`, `new-password` / `current-password`), autofocus on the first field, Enter submits. The spec lists requirements, not UI conventions - a form that ignores conventions reads as unfinished.
 - **No prop-flag components.** If two screens differ in fields or logic (login vs register), write two components and share the presentational shell (`AuthCard`) - never one component with `name?` / `onNameChange?` optionals and `{condition && <field/>}` inside. Optional props that exist only to serve one caller are a design smell.
 
 ## React types

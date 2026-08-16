@@ -5,6 +5,7 @@ import { ProtectedRoute, PublicOnlyRoute } from "@/features/auth/route-guards";
 import { LoginPage } from "@/features/auth/login-page";
 import { RegisterPage } from "@/features/auth/register-page";
 import { DataRoomPage } from "@/features/data-room/data-room-page";
+import { FolderPage } from "@/features/data-room/folder-page";
 
 function App() {
   return (
@@ -31,6 +32,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DataRoomPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/folder/:id"
+          element={
+            <ProtectedRoute>
+              <FolderPage />
             </ProtectedRoute>
           }
         />

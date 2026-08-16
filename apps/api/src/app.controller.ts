@@ -4,12 +4,6 @@ import { Public } from './common/decorators/public.decorator';
 @Controller()
 export class AppController {
   @Public()
-  @Get()
-  getHello() {
-    return null;
-  }
-
-  @Public()
   @Get('health')
   getHealth() {
     return { status: 'ok' };
