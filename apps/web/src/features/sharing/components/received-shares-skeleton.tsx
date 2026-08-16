@@ -9,3 +9,17 @@ export function ReceivedSharesSkeleton() {
     </div>
   );
 }
+
+interface ReceivedSharesRowsSkeletonProps {
+  rows?: number;
+}
+
+export function ReceivedSharesRowsSkeleton({ rows = 2 }: ReceivedSharesRowsSkeletonProps) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, index) => (
+        <Skeleton key={index} className="h-14 w-full" />
+      ))}
+    </>
+  );
+}

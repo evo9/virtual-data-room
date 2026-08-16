@@ -54,8 +54,12 @@ export async function createShare(input: CreateShareInput): Promise<Share> {
   return data;
 }
 
-export async function listShares(resourceType: ResourceType, resourceId: string): Promise<Share[]> {
-  const { data } = await api.get<Share[]>("/shares", { params: { resourceType, resourceId } });
+export async function listShares(
+  resourceType: ResourceType,
+  resourceId: string,
+  params: PageParams & { mode?: ShareMode } = {}
+): Promise<Page<Share>> {
+  const { data } = await api.get<Page<Share>>("/shares", { params: { resourceType, resourceId, ...params } });
   return data;
 }
 
@@ -63,8 +67,8 @@ export async function revokeShare(shareId: string): Promise<void> {
   await api.delete(`/shares/${shareId}`);
 }
 
-export async function fetchReceivedShares(): Promise<ReceivedShare[]> {
-  const { data } = await api.get<ReceivedShare[]>("/shares/received");
+export async function fetchReceivedShares(params: PageParams = {}): Promise<Page<ReceivedShare>> {
+  const { data } = await api.get<Page<ReceivedShare>>("/shares/received", { params });
   return data;
 }
 

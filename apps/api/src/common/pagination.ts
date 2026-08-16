@@ -16,13 +16,15 @@ export interface DataRoomsCursor {
   i: string;
 }
 
+export type ShareCursor = { t: 'share'; c: string; i: string };
+
 /**
  * Cursors are opaque to the client - base64url of a small JSON tag. Decoding
  * throws a plain Error on malformed input; callers turn that into a 400
  * (see common/parse-cursor.ts), this module stays free of Nest/HTTP concerns.
  */
 export function encodeCursor(
-  cursor: ContentsCursor | DataRoomsCursor | FolderCursor,
+  cursor: ContentsCursor | DataRoomsCursor | FolderCursor | ShareCursor,
 ): string {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
@@ -62,6 +64,19 @@ export function decodeDataRoomsCursor(raw: string): DataRoomsCursor {
     throw new Error('Malformed cursor');
   }
   return cursor as unknown as DataRoomsCursor;
+}
+
+export function decodeShareCursor(raw: string): ShareCursor {
+  const cursor = decode(raw);
+  if (
+    cursor.t !== 'share' ||
+    typeof cursor.c !== 'string' ||
+    typeof cursor.i !== 'string' ||
+    Number.isNaN(Date.parse(cursor.c))
+  ) {
+    throw new Error('Malformed cursor');
+  }
+  return cursor as ShareCursor;
 }
 
 function decode(raw: string): Record<string, unknown> {

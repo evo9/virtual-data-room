@@ -9,7 +9,11 @@ import {
   folderScope,
   requireAccess,
 } from '@/common/access';
+import { decodeShareCursor, encodeCursor, Page } from '@/common/pagination';
+import { parseCursor } from '@/common/parse-cursor';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { CreateShareDto } from './dto/create-share.dto';
+import { ListSharesQueryDto } from './dto/list-shares-query.dto';
 
 interface ResolvedResource {
   name: string;
@@ -65,13 +69,51 @@ export class SharesService {
     userId: string,
     resourceType: ShareResourceType,
     resourceId: string,
-  ): Promise<Share[]> {
+    query: ListSharesQueryDto,
+  ): Promise<Page<Share>> {
     await this.resolveOwnedResource(userId, resourceType, resourceId);
 
-    return this.prisma.share.findMany({
-      where: { resourceType, resourceId, revokedAt: null },
-      orderBy: { createdAt: 'asc' },
+    const cursor = parseCursor(decodeShareCursor, query.cursor);
+    const limit = query.limit;
+
+    const where = {
+      resourceType,
+      resourceId,
+      revokedAt: null,
+      ...(query.mode ? { mode: query.mode } : {}),
+      ...(cursor
+        ? {
+            OR: [
+              { createdAt: { lt: new Date(cursor.c) } },
+              { createdAt: new Date(cursor.c), id: { lt: cursor.i } },
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.share.findMany({
+      where,
+      // Newest first: a page cap means only the first page is visible by
+      // default, and a freshly created share must land there, not get
+      // buried behind older ones on a later page.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
     });
+
+    if (rows.length > limit) {
+      const items = rows.slice(0, limit);
+      const last = items[items.length - 1];
+      return {
+        items,
+        nextCursor: encodeCursor({
+          t: 'share',
+          c: last.createdAt.toISOString(),
+          i: last.id,
+        }),
+      };
+    }
+
+    return { items: rows, nextCursor: null };
   }
 
   async revoke(userId: string, shareId: string): Promise<void> {
@@ -93,25 +135,60 @@ export class SharesService {
     });
   }
 
-  async getReceived(userId: string): Promise<ReceivedShare[]> {
+  async getReceived(
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<Page<ReceivedShare>> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { email: true },
     });
     if (!user) {
-      return [];
+      return { items: [], nextCursor: null };
     }
 
-    const shares = await this.prisma.share.findMany({
-      where: { mode: 'USER', granteeEmail: user.email, revokedAt: null },
-      orderBy: { createdAt: 'desc' },
+    const cursor = parseCursor(decodeShareCursor, query.cursor);
+    const limit = query.limit;
+
+    const where = {
+      mode: 'USER' as const,
+      granteeEmail: user.email,
+      revokedAt: null,
+      ...(cursor
+        ? {
+            OR: [
+              { createdAt: { lt: new Date(cursor.c) } },
+              { createdAt: new Date(cursor.c), id: { lt: cursor.i } },
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.share.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
     });
 
-    const received: ReceivedShare[] = [];
-    for (const share of shares) {
-      const resource = await this.loadResource(
-        share.resourceType,
-        share.resourceId,
+    const page = rows.slice(0, limit);
+    // Cursor is built from the raw page (before dropping dangling shares
+    // below) - otherwise a dangling share would eat a neighboring live one
+    // at the page seam.
+    const nextCursor =
+      rows.length > limit
+        ? encodeCursor({
+            t: 'share',
+            c: page[page.length - 1].createdAt.toISOString(),
+            i: page[page.length - 1].id,
+          })
+        : null;
+
+    const resources = await this.loadResourcesBatch(page);
+
+    const items: ReceivedShare[] = [];
+    for (const share of page) {
+      const resource = resources.get(
+        `${share.resourceType}:${share.resourceId}`,
       );
       // The share outlives the resource it points at - polymorphic
       // reference, no FK. A dangling share is silently dropped rather than
@@ -119,7 +196,7 @@ export class SharesService {
       if (!resource) {
         continue;
       }
-      received.push({
+      items.push({
         shareId: share.id,
         resourceType: share.resourceType,
         resourceId: share.resourceId,
@@ -128,7 +205,7 @@ export class SharesService {
         sharedAt: share.createdAt,
       });
     }
-    return received;
+    return { items, nextCursor };
   }
 
   /** Only the owner of the underlying resource may manage shares on it. */
@@ -180,5 +257,63 @@ export class SharesService {
     if (!file) return null;
     const scope = await fileScope(this.prisma, file);
     return { name: file.name, ...scope };
+  }
+
+  /**
+   * Batches resource lookups for a page of shares into at most three
+   * findMany calls (one per resource type), instead of resolving each share
+   * with its own query. No access chain is built here - getReceived isn't
+   * an authorization check, only display data for already-matched shares.
+   */
+  private async loadResourcesBatch(
+    shares: Share[],
+  ): Promise<Map<string, { name: string; dataRoomId: string }>> {
+    const idsByType: Record<ShareResourceType, string[]> = {
+      DATAROOM: [],
+      FOLDER: [],
+      FILE: [],
+    };
+    for (const share of shares) {
+      idsByType[share.resourceType].push(share.resourceId);
+    }
+
+    const [dataRooms, folders, files] = await Promise.all([
+      idsByType.DATAROOM.length
+        ? this.prisma.dataRoom.findMany({
+            where: { id: { in: idsByType.DATAROOM } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+      idsByType.FOLDER.length
+        ? this.prisma.folder.findMany({
+            where: { id: { in: idsByType.FOLDER } },
+            select: { id: true, name: true, dataRoomId: true },
+          })
+        : Promise.resolve([]),
+      idsByType.FILE.length
+        ? this.prisma.file.findMany({
+            where: { id: { in: idsByType.FILE } },
+            select: { id: true, name: true, dataRoomId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const map = new Map<string, { name: string; dataRoomId: string }>();
+    for (const room of dataRooms) {
+      map.set(`DATAROOM:${room.id}`, { name: room.name, dataRoomId: room.id });
+    }
+    for (const folder of folders) {
+      map.set(`FOLDER:${folder.id}`, {
+        name: folder.name,
+        dataRoomId: folder.dataRoomId,
+      });
+    }
+    for (const file of files) {
+      map.set(`FILE:${file.id}`, {
+        name: file.name,
+        dataRoomId: file.dataRoomId,
+      });
+    }
+    return map;
   }
 }

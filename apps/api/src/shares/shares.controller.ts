@@ -14,6 +14,7 @@ import { CreateShareDto } from './dto/create-share.dto';
 import { ListSharesQueryDto } from './dto/list-shares-query.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/common/decorators/current-user.decorator';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 
 @Controller('shares')
 export class SharesController {
@@ -25,8 +26,11 @@ export class SharesController {
   }
 
   @Get('received')
-  getReceived(@CurrentUser() user: AuthenticatedUser) {
-    return this.sharesService.getReceived(user.id);
+  getReceived(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.sharesService.getReceived(user.id, query);
   }
 
   @Get()
@@ -38,6 +42,7 @@ export class SharesController {
       user.id,
       query.resourceType,
       query.resourceId,
+      query,
     );
   }
 
