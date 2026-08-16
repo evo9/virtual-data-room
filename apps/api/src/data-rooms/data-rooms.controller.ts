@@ -61,6 +61,7 @@ export class DataRoomsController {
       user.id,
       id,
       query.parentId ?? null,
+      query,
     );
   }
 }

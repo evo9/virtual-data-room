@@ -14,7 +14,7 @@ import {
 } from "@/features/sharing/api";
 import { PublicContentsList } from "@/features/sharing/components/public-contents-list";
 import { PublicShareError } from "@/features/sharing/components/public-share-error";
-import { useIntersectionObserver } from "@/features/data-room/use-intersection-observer";
+import { useIntersectionObserver } from "@/lib/use-intersection-observer";
 
 interface PublicContentsBrowserProps {
   token: string;

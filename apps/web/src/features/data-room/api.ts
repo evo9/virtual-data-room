@@ -157,9 +157,13 @@ export async function getFileDownloadUrl(fileId: string): Promise<string> {
   return data.url;
 }
 
-export async function fetchFolders(dataRoomId: string, parentId: string | null): Promise<FolderNode[]> {
-  const { data } = await api.get<FolderNode[]>(`/data-rooms/${dataRoomId}/folders`, {
-    params: parentId ? { parentId } : {},
+export async function fetchFolders(
+  dataRoomId: string,
+  parentId: string | null,
+  params: PageParams = {}
+): Promise<Page<FolderNode>> {
+  const { data } = await api.get<Page<FolderNode>>(`/data-rooms/${dataRoomId}/folders`, {
+    params: { ...(parentId ? { parentId } : {}), ...params },
   });
   return data;
 }

@@ -14,7 +14,7 @@ import {
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { moveFile, type FileItem, type FolderNode } from "@/features/data-room/api";
-import { contentsKey, useFolders } from "@/features/data-room/hooks";
+import { contentsKey, useFolders, type FoldersQuery } from "@/features/data-room/hooks";
 
 interface MoveFileDialogProps {
   file: FileItem | null;
@@ -34,6 +34,7 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
   }
 
   const rootQuery = useFolders(dataRoomId, null, open);
+  const rootFolders = rootQuery.data ? rootQuery.data.pages.flatMap((page) => page.items) : [];
 
   const currentFolderId = file?.folderId ?? null;
 
@@ -63,7 +64,8 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
   };
 
   const canMove = selectedFolderId !== undefined && selectedFolderId !== currentFolderId;
-  const isEmpty = rootQuery.isSuccess && rootQuery.data.length === 0 && currentFolderId === null;
+  const rootHasData = rootQuery.data !== undefined;
+  const isEmpty = rootHasData && rootFolders.length === 0 && !rootQuery.hasNextPage && currentFolderId === null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,7 +77,7 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
         <div className="max-h-72 overflow-y-auto rounded-md border">
           {rootQuery.isPending && <p className="p-4 text-sm text-muted-foreground">Loading folders...</p>}
 
-          {rootQuery.isError && (
+          {rootQuery.isError && !rootHasData && (
             <div className="flex flex-col items-center gap-2 p-4 text-center">
               <p className="text-sm text-muted-foreground">Could not load folders.</p>
               <Button variant="outline" size="sm" onClick={() => rootQuery.refetch()}>
@@ -90,7 +92,7 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
             </p>
           )}
 
-          {rootQuery.isSuccess && !isEmpty && (
+          {rootHasData && !isEmpty && (
             <ul className="py-1">
               <li>
                 <div
@@ -118,9 +120,10 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
                   </button>
                 </div>
               </li>
-              {rootQuery.data.map((folder) => (
+              {rootFolders.map((folder) => (
                 <FolderBranch key={folder.id} folder={folder} depth={1} tree={tree} />
               ))}
+              <LevelFooter query={rootQuery} indent="32px" />
             </ul>
           )}
         </div>
@@ -153,10 +156,13 @@ interface TreeContext {
 function FolderBranch({ folder, depth, tree }: { folder: FolderNode; depth: number; tree: TreeContext }) {
   const [expanded, setExpanded] = useState(false);
   const childrenQuery = useFolders(tree.dataRoomId, folder.id, expanded);
+  const childFolders = childrenQuery.data ? childrenQuery.data.pages.flatMap((page) => page.items) : [];
 
   const isCurrent = folder.id === tree.currentFolderId;
   const isSelected = tree.selectedFolderId === folder.id;
   const childIndent = `${depth * 16 + 32}px`;
+  const childrenHaveData = childrenQuery.data !== undefined;
+  const isChildrenEmpty = childrenHaveData && childFolders.length === 0 && !childrenQuery.hasNextPage;
 
   return (
     <li>
@@ -197,7 +203,7 @@ function FolderBranch({ folder, depth, tree }: { folder: FolderNode; depth: numb
         </p>
       )}
 
-      {expanded && childrenQuery.isError && (
+      {expanded && childrenQuery.isError && !childrenHaveData && (
         <div style={{ paddingLeft: childIndent }} className="flex items-center gap-2 py-1">
           <span className="text-sm text-muted-foreground">Could not load subfolders.</span>
           <Button variant="ghost" size="sm" onClick={() => childrenQuery.refetch()}>
@@ -206,19 +212,52 @@ function FolderBranch({ folder, depth, tree }: { folder: FolderNode; depth: numb
         </div>
       )}
 
-      {expanded && childrenQuery.isSuccess && childrenQuery.data.length === 0 && (
+      {expanded && isChildrenEmpty && (
         <p style={{ paddingLeft: childIndent }} className="py-1.5 text-sm text-muted-foreground">
           No subfolders
         </p>
       )}
 
-      {expanded && childrenQuery.isSuccess && childrenQuery.data.length > 0 && (
+      {expanded && childrenHaveData && !isChildrenEmpty && (
         <ul>
-          {childrenQuery.data.map((child) => (
+          {childFolders.map((child) => (
             <FolderBranch key={child.id} folder={child} depth={depth + 1} tree={tree} />
           ))}
+          <LevelFooter query={childrenQuery} indent={childIndent} />
         </ul>
       )}
     </li>
+  );
+}
+
+function LevelFooter({ query, indent }: { query: FoldersQuery; indent: string }) {
+  return (
+    <>
+      {query.hasNextPage && !query.isFetchNextPageError && (
+        <li style={{ paddingLeft: indent }}>
+          <button
+            type="button"
+            disabled={query.isFetchingNextPage}
+            onClick={() => query.fetchNextPage()}
+            className="py-1.5 text-sm text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Show more
+          </button>
+        </li>
+      )}
+      {query.isFetchingNextPage && (
+        <li style={{ paddingLeft: indent }} className="py-1.5 text-sm text-muted-foreground">
+          Loading...
+        </li>
+      )}
+      {query.isFetchNextPageError && (
+        <li style={{ paddingLeft: indent }} className="flex items-center gap-2 py-1">
+          <span className="text-sm text-muted-foreground">Could not load more.</span>
+          <Button variant="ghost" size="sm" onClick={() => query.fetchNextPage()}>
+            Retry
+          </Button>
+        </li>
+      )}
+    </>
   );
 }

@@ -93,6 +93,6 @@ model Share {
   revokedAt    DateTime?
   createdAt    DateTime          @default(now())
 
-  @@index([resourceType, resourceId])
-  @@index([granteeEmail])
+  @@index([resourceType, resourceId, createdAt, id])
+  @@index([granteeEmail, createdAt, id])
 }

@@ -19,7 +19,7 @@ import { FolderRowMenu } from "@/features/data-room/components/folder-row-menu";
 import { MoveFileDialog } from "@/features/data-room/components/move-file-dialog";
 import { RenameFileDialog } from "@/features/data-room/components/rename-file-dialog";
 import { RenameFolderDialog } from "@/features/data-room/components/rename-folder-dialog";
-import { useIntersectionObserver } from "@/features/data-room/use-intersection-observer";
+import { useIntersectionObserver } from "@/lib/use-intersection-observer";
 import type { ResourceType } from "@/features/sharing/api";
 import { ShareDialog } from "@/features/sharing/components/share-dialog";
 

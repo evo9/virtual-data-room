@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
 
 import {
   createShare,
@@ -7,8 +8,14 @@ import {
   listShares,
   revokeShare,
   type CreateShareInput,
+  type ReceivedShare,
   type ResourceType,
+  type Share,
 } from "@/features/sharing/api";
+import type { Page } from "@/features/data-room/api";
+
+export type SharesQuery = UseInfiniteQueryResult<InfiniteData<Page<Share>>, unknown>;
+export type ReceivedSharesQuery = UseInfiniteQueryResult<InfiniteData<Page<ReceivedShare>>, unknown>;
 
 export function sharesKey(resourceType: ResourceType, resourceId: string) {
   return ["shares", resourceType, resourceId] as const;
@@ -20,10 +27,24 @@ export function dataRoomDetailKey(dataRoomId: string) {
   return ["data-room-detail", dataRoomId] as const;
 }
 
-export function useShares(resourceType: ResourceType, resourceId: string, enabled = true) {
+// Only the USER-mode share list is paginated - a resource has at most one
+// active public link (enforced by `create`'s dedup), so it's fetched
+// separately below and never falls off a page boundary as email grants
+// accumulate.
+export function useShares(resourceType: ResourceType, resourceId: string, enabled = true): SharesQuery {
+  return useInfiniteQuery({
+    queryKey: [...sharesKey(resourceType, resourceId), "USER"] as const,
+    queryFn: ({ pageParam }) => listShares(resourceType, resourceId, { cursor: pageParam, mode: "USER" }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled,
+  });
+}
+
+export function usePublicLinkShare(resourceType: ResourceType, resourceId: string, enabled = true) {
   return useQuery({
-    queryKey: sharesKey(resourceType, resourceId),
-    queryFn: () => listShares(resourceType, resourceId),
+    queryKey: [...sharesKey(resourceType, resourceId), "PUBLIC_LINK"] as const,
+    queryFn: () => listShares(resourceType, resourceId, { mode: "PUBLIC_LINK", limit: 1 }),
     enabled,
   });
 }
@@ -47,10 +68,12 @@ export function useRevokeShare(resourceType: ResourceType, resourceId: string) {
   });
 }
 
-export function useReceivedShares() {
-  return useQuery({
+export function useReceivedShares(): ReceivedSharesQuery {
+  return useInfiniteQuery({
     queryKey: receivedSharesKey,
-    queryFn: fetchReceivedShares,
+    queryFn: ({ pageParam }) => fetchReceivedShares({ cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
 
