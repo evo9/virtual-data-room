@@ -46,8 +46,8 @@ export function MoveFileDialog({ file, dataRoomId, open, onOpenChange }: MoveFil
           ? `Moved and renamed to "${updated.name}" to avoid a naming conflict`
           : `"${updated.name}" moved`
       );
-      queryClient.invalidateQueries({ queryKey: contentsKey(currentFolderId) });
-      queryClient.invalidateQueries({ queryKey: contentsKey(targetFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, currentFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, targetFolderId) });
       onOpenChange(false);
     },
     onError: (error) => {

@@ -37,4 +37,20 @@ export class PublicSharesController {
   ) {
     return this.publicSharesService.getFileViewUrl(token, id);
   }
+
+  @Get(':token/files/:id/download-url')
+  getFileDownloadUrl(
+    @Param('token') token: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.publicSharesService.getFileDownloadUrl(token, id);
+  }
+
+  @Get(':token/files/:id')
+  getFileSummary(
+    @Param('token') token: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.publicSharesService.getFileSummary(token, id);
+  }
 }

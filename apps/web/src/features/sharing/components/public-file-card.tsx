@@ -1,11 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
-import { DownloadIcon, FileTextIcon } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { PdfViewer } from "@/components/pdf-viewer";
 import { getErrorMessage } from "@/lib/api";
-import { formatBytes } from "@/lib/format";
-import { fetchPublicFileViewUrl, type PublicShareSummary } from "@/features/sharing/api";
+import { fetchPublicFileDownloadUrl, fetchPublicFileViewUrl, type PublicShareSummary } from "@/features/sharing/api";
 
 interface PublicFileCardProps {
   token: string;
@@ -13,8 +11,14 @@ interface PublicFileCardProps {
 }
 
 export function PublicFileCard({ token, summary }: PublicFileCardProps) {
+  const viewUrlQuery = useQuery({
+    queryKey: ["public-file-view-url", token, summary.resourceId],
+    queryFn: () => fetchPublicFileViewUrl(token, summary.resourceId),
+    retry: false,
+  });
+
   const downloadMutation = useMutation({
-    mutationFn: () => fetchPublicFileViewUrl(token, summary.resourceId),
+    mutationFn: () => fetchPublicFileDownloadUrl(token, summary.resourceId),
     onSuccess: (url) => {
       window.location.href = url;
     },
@@ -24,17 +28,15 @@ export function PublicFileCard({ token, summary }: PublicFileCardProps) {
   });
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-      <FileTextIcon className="size-10 text-muted-foreground" />
-      <div>
-        <p className="text-base font-medium">{summary.resourceName}</p>
-        {typeof summary.size === "number" && (
-          <p className="text-sm text-muted-foreground">{formatBytes(summary.size)}</p>
-        )}
-      </div>
-      <Button disabled={downloadMutation.isPending} onClick={() => downloadMutation.mutate()}>
-        <DownloadIcon /> {downloadMutation.isPending ? "Preparing..." : "Download"}
-      </Button>
-    </div>
+    <PdfViewer
+      fileName={summary.resourceName}
+      size={summary.size}
+      viewUrl={viewUrlQuery.data}
+      viewUrlError={viewUrlQuery.isError}
+      onRetryView={() => viewUrlQuery.refetch()}
+      isRetrying={viewUrlQuery.isFetching}
+      onDownload={() => downloadMutation.mutate()}
+      downloadPending={downloadMutation.isPending}
+    />
   );
 }

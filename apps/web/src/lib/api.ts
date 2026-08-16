@@ -39,7 +39,10 @@ api.interceptors.response.use(
 
     if (status === 401 && !isPublicAuthCall) {
       clearToken();
-      if (window.location.pathname !== "/login") {
+      // A stale token still triggers the background /auth/me call on every
+      // page, including public share links a visitor never tried to log
+      // into - don't hijack their read-only view with a login redirect.
+      if (window.location.pathname !== "/login" && !window.location.pathname.startsWith("/share/")) {
         window.location.href = "/login";
       }
     }

@@ -79,7 +79,12 @@ export function FolderExplorer({
       onDrop={handleDrop}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <BreadcrumbsBar dataRoomName={dataRoomName} folders={breadcrumbFolders} />
+        <BreadcrumbsBar
+          accessLevel={accessLevel}
+          dataRoomId={dataRoomId}
+          dataRoomName={dataRoomName}
+          folders={breadcrumbFolders}
+        />
         {canManage && (
           <div className="flex items-center gap-3">
             <span className="hidden text-xs text-muted-foreground sm:inline">

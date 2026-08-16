@@ -73,8 +73,10 @@ export function PeopleAccessSection({ resourceType, resourceId, shares }: People
         </Button>
       </form>
 
-      {peopleShares.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
+      {peopleShares.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No one has been given access yet.</p>
+      ) : (
+        <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
           {peopleShares.map((share) => (
             <li key={share.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="truncate">{share.granteeEmail}</span>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
+import { useSectionPrefix, withSection } from "@/lib/section";
 import { getFileDownloadUrl, type AccessLevel, type FileItem, type FolderItem } from "@/features/data-room/api";
 import type { ContentsQuery } from "@/features/data-room/hooks";
 import { ContentsRowsSkeleton, ContentsTableSkeleton } from "@/features/data-room/components/contents-table-skeleton";
@@ -40,6 +41,7 @@ interface ShareTarget {
 
 export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCreateFolder, onUploadClick }: ContentsTableProps) {
   const navigate = useNavigate();
+  const prefix = useSectionPrefix();
   const canManage = accessLevel === "OWNER";
   const [renameTarget, setRenameTarget] = useState<FolderItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null);
@@ -109,7 +111,7 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
                 key={item.id}
                 folder={item}
                 canManage={canManage}
-                onOpen={() => navigate(`/folder/${item.id}`)}
+                onOpen={() => navigate(withSection(prefix, `/folder/${item.id}`))}
                 onRename={() => setRenameTarget(item)}
                 onShare={() => setShareTarget({ resourceType: "FOLDER", resourceId: item.id, resourceName: item.name })}
                 onDelete={() => setDeleteTarget(item)}
@@ -120,6 +122,13 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
                 file={item}
                 canManage={canManage}
                 downloadPending={downloadMutation.isPending && downloadMutation.variables === item.id}
+                onOpen={() =>
+                  navigate(withSection(prefix, `/file/${item.id}`), {
+                    state: {
+                      from: withSection(prefix, folderId ? `/folder/${folderId}` : `/room/${dataRoomId}`),
+                    },
+                  })
+                }
                 onRename={() => setRenameFileTarget(item)}
                 onMove={() => setMoveFileTarget(item)}
                 onDownload={() => downloadMutation.mutate(item.id)}
@@ -158,18 +167,21 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
 
       <RenameFolderDialog
         folder={renameTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={renameTarget !== null}
         onOpenChange={(open) => !open && setRenameTarget(null)}
       />
       <DeleteFolderDialog
         folder={deleteTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       />
       <RenameFileDialog
         file={renameFileTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={renameFileTarget !== null}
         onOpenChange={(open) => !open && setRenameFileTarget(null)}
@@ -182,6 +194,7 @@ export function ContentsTable({ dataRoomId, folderId, query, accessLevel, onCrea
       />
       <DeleteFileDialog
         file={deleteFileTarget}
+        dataRoomId={dataRoomId}
         listingFolderId={folderId}
         open={deleteFileTarget !== null}
         onOpenChange={(open) => !open && setDeleteFileTarget(null)}
@@ -235,6 +248,7 @@ function FileRow({
   file,
   canManage,
   downloadPending,
+  onOpen,
   onRename,
   onMove,
   onDownload,
@@ -244,6 +258,7 @@ function FileRow({
   file: FileItem;
   canManage: boolean;
   downloadPending: boolean;
+  onOpen: () => void;
   onRename: () => void;
   onMove: () => void;
   onDownload: () => void;
@@ -251,7 +266,7 @@ function FileRow({
   onDelete: () => void;
 }) {
   return (
-    <TableRow>
+    <TableRow className="cursor-pointer" onClick={onOpen}>
       <TableCell className="font-medium">
         <span className="flex items-center gap-2">
           <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />

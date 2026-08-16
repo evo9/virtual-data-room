@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-const DOWNLOAD_URL_TTL_SECONDS = 5 * 60;
+const SIGNED_URL_TTL_SECONDS = 5 * 60;
 
 @Injectable()
 export class StorageService {
@@ -33,11 +33,21 @@ export class StorageService {
   ): Promise<string> {
     const { data, error } = await this.client.storage
       .from(this.bucket)
-      .createSignedUrl(storageKey, DOWNLOAD_URL_TTL_SECONDS, {
+      .createSignedUrl(storageKey, SIGNED_URL_TTL_SECONDS, {
         download: fileName,
       });
     if (error || !data) {
       throw new InternalServerErrorException('Could not prepare the download');
+    }
+    return data.signedUrl;
+  }
+
+  async createViewUrl(storageKey: string): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .createSignedUrl(storageKey, SIGNED_URL_TTL_SECONDS);
+    if (error || !data) {
+      throw new InternalServerErrorException('Could not prepare the file');
     }
     return data.signedUrl;
   }

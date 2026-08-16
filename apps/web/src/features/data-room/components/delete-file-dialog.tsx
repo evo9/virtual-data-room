@@ -16,19 +16,20 @@ import { contentsKey } from "@/features/data-room/hooks";
 
 interface DeleteFileDialogProps {
   file: FileItem | null;
+  dataRoomId: string;
   listingFolderId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function DeleteFileDialog({ file, listingFolderId, open, onOpenChange }: DeleteFileDialogProps) {
+export function DeleteFileDialog({ file, dataRoomId, listingFolderId, open, onOpenChange }: DeleteFileDialogProps) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: () => deleteFile(file!.id),
     onSuccess: () => {
       toast.success(`"${file?.name}" deleted`);
-      queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, listingFolderId) });
       onOpenChange(false);
     },
     onError: (error) => {

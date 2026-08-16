@@ -77,10 +77,11 @@ export function useReceivedShares(): ReceivedSharesQuery {
   });
 }
 
-export function useDataRoomDetail(dataRoomId: string) {
+export function useDataRoomDetail(dataRoomId: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: dataRoomDetailKey(dataRoomId),
     queryFn: () => fetchDataRoomDetail(dataRoomId),
     retry: false,
+    enabled: options.enabled ?? true,
   });
 }

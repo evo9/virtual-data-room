@@ -20,12 +20,19 @@ import { folderNameSchema, type FolderNameValues } from "@/features/data-room/sc
 
 interface RenameFolderDialogProps {
   folder: FolderItem | null;
+  dataRoomId: string;
   listingFolderId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function RenameFolderDialog({ folder, listingFolderId, open, onOpenChange }: RenameFolderDialogProps) {
+export function RenameFolderDialog({
+  folder,
+  dataRoomId,
+  listingFolderId,
+  open,
+  onOpenChange,
+}: RenameFolderDialogProps) {
   const queryClient = useQueryClient();
 
   const {
@@ -46,7 +53,7 @@ export function RenameFolderDialog({ folder, listingFolderId, open, onOpenChange
     mutationFn: (values: FolderNameValues) => renameFolder(folder!.id, values.name),
     onSuccess: () => {
       toast.success("Folder renamed");
-      queryClient.invalidateQueries({ queryKey: contentsKey(listingFolderId) });
+      queryClient.invalidateQueries({ queryKey: contentsKey(dataRoomId, listingFolderId) });
       queryClient.invalidateQueries({ queryKey: breadcrumbsKey(folder!.id) });
       queryClient.invalidateQueries({ queryKey: foldersKeyPrefix });
       onOpenChange(false);

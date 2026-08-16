@@ -100,3 +100,20 @@ export async function fetchPublicFileViewUrl(token: string, fileId: string): Pro
   const { data } = await api.get<{ url: string }>(`/public/${token}/files/${fileId}/view-url`);
   return data.url;
 }
+
+export async function fetchPublicFileDownloadUrl(token: string, fileId: string): Promise<string> {
+  const { data } = await api.get<{ url: string }>(`/public/${token}/files/${fileId}/download-url`);
+  return data.url;
+}
+
+export interface PublicFileSummary {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+}
+
+export async function fetchPublicFileSummary(token: string, fileId: string): Promise<PublicFileSummary> {
+  const { data } = await api.get<PublicFileSummary>(`/public/${token}/files/${fileId}`);
+  return data;
+}
