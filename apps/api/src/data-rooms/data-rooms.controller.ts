@@ -12,6 +12,7 @@ import { CreateDataRoomDto } from './dto/create-data-room.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { ListFoldersQueryDto } from './dto/list-folders-query.dto';
 
 @Controller('data-rooms')
 export class DataRoomsController {
@@ -40,5 +41,18 @@ export class DataRoomsController {
     @Query() query: PaginationQueryDto,
   ) {
     return this.dataRoomsService.getContents(user.id, id, query);
+  }
+
+  @Get(':id/folders')
+  getFolders(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListFoldersQueryDto,
+  ) {
+    return this.dataRoomsService.getFolders(
+      user.id,
+      id,
+      query.parentId ?? null,
+    );
   }
 }

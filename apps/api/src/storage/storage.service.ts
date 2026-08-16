@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+const DOWNLOAD_URL_TTL_SECONDS = 5 * 60;
+
 @Injectable()
 export class StorageService {
   private readonly client: ReturnType<typeof createClient>;
@@ -23,5 +25,34 @@ export class StorageService {
       throw new InternalServerErrorException('Could not prepare the upload');
     }
     return data.signedUrl;
+  }
+
+  async createDownloadUrl(
+    storageKey: string,
+    fileName: string,
+  ): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .createSignedUrl(storageKey, DOWNLOAD_URL_TTL_SECONDS, {
+        download: fileName,
+      });
+    if (error || !data) {
+      throw new InternalServerErrorException('Could not prepare the download');
+    }
+    return data.signedUrl;
+  }
+
+  async removeObject(storageKey: string): Promise<void> {
+    await this.removeObjects([storageKey]);
+  }
+
+  async removeObjects(storageKeys: string[]): Promise<void> {
+    if (storageKeys.length === 0) return;
+    const { error } = await this.client.storage
+      .from(this.bucket)
+      .remove(storageKeys);
+    if (error) {
+      throw new InternalServerErrorException('Could not delete the file');
+    }
   }
 }

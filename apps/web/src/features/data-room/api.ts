@@ -60,6 +60,23 @@ export interface DeletePreview {
   totalSize: number;
 }
 
+export interface FileSummary {
+  id: string;
+  name: string;
+  folderId: string | null;
+  dataRoomId: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+  createdAt: string;
+}
+
+export interface FolderNode {
+  id: string;
+  name: string;
+  hasChildren: boolean;
+}
+
 export async function fetchDataRooms(params: PageParams = {}): Promise<Page<DataRoom>> {
   const { data } = await api.get<Page<DataRoom>>("/data-rooms", { params });
   return data;
@@ -112,4 +129,30 @@ export async function renameFolder(folderId: string, name: string): Promise<Fold
 
 export async function deleteFolder(folderId: string): Promise<void> {
   await api.delete(`/folders/${folderId}`);
+}
+
+export async function renameFile(fileId: string, name: string): Promise<FileSummary> {
+  const { data } = await api.patch<FileSummary>(`/files/${fileId}`, { name });
+  return data;
+}
+
+export async function moveFile(fileId: string, targetFolderId: string | null): Promise<FileSummary> {
+  const { data } = await api.patch<FileSummary>(`/files/${fileId}/move`, { targetFolderId });
+  return data;
+}
+
+export async function deleteFile(fileId: string): Promise<void> {
+  await api.delete(`/files/${fileId}`);
+}
+
+export async function getFileDownloadUrl(fileId: string): Promise<string> {
+  const { data } = await api.get<{ url: string }>(`/files/${fileId}/download-url`);
+  return data.url;
+}
+
+export async function fetchFolders(dataRoomId: string, parentId: string | null): Promise<FolderNode[]> {
+  const { data } = await api.get<FolderNode[]>(`/data-rooms/${dataRoomId}/folders`, {
+    params: parentId ? { parentId } : {},
+  });
+  return data;
 }

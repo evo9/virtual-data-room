@@ -89,6 +89,7 @@ export function FolderExplorer({ dataRoomId, dataRoomName, folderId, breadcrumbF
       />
 
       <ContentsTable
+        dataRoomId={dataRoomId}
         folderId={folderId}
         query={contentsQuery}
         onCreateFolder={() => setCreateOpen(true)}

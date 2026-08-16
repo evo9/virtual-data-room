@@ -1,30 +1,51 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import { FileTextIcon, FolderIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getErrorMessage } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
-import type { FileItem, FolderItem } from "@/features/data-room/api";
+import { getFileDownloadUrl, type FileItem, type FolderItem } from "@/features/data-room/api";
 import type { ContentsQuery } from "@/features/data-room/hooks";
 import { ContentsRowsSkeleton, ContentsTableSkeleton } from "@/features/data-room/components/contents-table-skeleton";
+import { DeleteFileDialog } from "@/features/data-room/components/delete-file-dialog";
 import { DeleteFolderDialog } from "@/features/data-room/components/delete-folder-dialog";
 import { EmptyFolderState } from "@/features/data-room/components/empty-folder-state";
+import { FileRowMenu } from "@/features/data-room/components/file-row-menu";
 import { FolderRowMenu } from "@/features/data-room/components/folder-row-menu";
+import { MoveFileDialog } from "@/features/data-room/components/move-file-dialog";
+import { RenameFileDialog } from "@/features/data-room/components/rename-file-dialog";
 import { RenameFolderDialog } from "@/features/data-room/components/rename-folder-dialog";
 import { useIntersectionObserver } from "@/features/data-room/use-intersection-observer";
 
 interface ContentsTableProps {
+  dataRoomId: string;
   folderId: string | null;
   query: ContentsQuery;
   onCreateFolder: () => void;
   onUploadClick: () => void;
 }
 
-export function ContentsTable({ folderId, query, onCreateFolder, onUploadClick }: ContentsTableProps) {
+export function ContentsTable({ dataRoomId, folderId, query, onCreateFolder, onUploadClick }: ContentsTableProps) {
   const navigate = useNavigate();
   const [renameTarget, setRenameTarget] = useState<FolderItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FolderItem | null>(null);
+  const [renameFileTarget, setRenameFileTarget] = useState<FileItem | null>(null);
+  const [moveFileTarget, setMoveFileTarget] = useState<FileItem | null>(null);
+  const [deleteFileTarget, setDeleteFileTarget] = useState<FileItem | null>(null);
+
+  const downloadMutation = useMutation({
+    mutationFn: (fileId: string) => getFileDownloadUrl(fileId),
+    onSuccess: (url) => {
+      window.location.href = url;
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not get a download link"));
+    },
+  });
 
   const { isPending, isError, data, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query;
 
@@ -81,7 +102,15 @@ export function ContentsTable({ folderId, query, onCreateFolder, onUploadClick }
                 onDelete={() => setDeleteTarget(item)}
               />
             ) : (
-              <FileRow key={item.id} file={item} />
+              <FileRow
+                key={item.id}
+                file={item}
+                downloadPending={downloadMutation.isPending && downloadMutation.variables === item.id}
+                onRename={() => setRenameFileTarget(item)}
+                onMove={() => setMoveFileTarget(item)}
+                onDownload={() => downloadMutation.mutate(item.id)}
+                onDelete={() => setDeleteFileTarget(item)}
+              />
             )
           )}
 
@@ -124,6 +153,24 @@ export function ContentsTable({ folderId, query, onCreateFolder, onUploadClick }
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       />
+      <RenameFileDialog
+        file={renameFileTarget}
+        listingFolderId={folderId}
+        open={renameFileTarget !== null}
+        onOpenChange={(open) => !open && setRenameFileTarget(null)}
+      />
+      <MoveFileDialog
+        file={moveFileTarget}
+        dataRoomId={dataRoomId}
+        open={moveFileTarget !== null}
+        onOpenChange={(open) => !open && setMoveFileTarget(null)}
+      />
+      <DeleteFileDialog
+        file={deleteFileTarget}
+        listingFolderId={folderId}
+        open={deleteFileTarget !== null}
+        onOpenChange={(open) => !open && setDeleteFileTarget(null)}
+      />
     </>
   );
 }
@@ -156,7 +203,21 @@ function FolderRow({
   );
 }
 
-function FileRow({ file }: { file: FileItem }) {
+function FileRow({
+  file,
+  downloadPending,
+  onRename,
+  onMove,
+  onDownload,
+  onDelete,
+}: {
+  file: FileItem;
+  downloadPending: boolean;
+  onRename: () => void;
+  onMove: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
+}) {
   return (
     <TableRow>
       <TableCell className="font-medium">
@@ -167,7 +228,16 @@ function FileRow({ file }: { file: FileItem }) {
       </TableCell>
       <TableCell className="text-muted-foreground">{formatBytes(file.size)}</TableCell>
       <TableCell className="text-muted-foreground">{formatDate(file.createdAt)}</TableCell>
-      <TableCell />
+      <TableCell className="text-right">
+        <FileRowMenu
+          fileName={file.name}
+          downloadPending={downloadPending}
+          onRename={onRename}
+          onMove={onMove}
+          onDownload={onDownload}
+          onDelete={onDelete}
+        />
+      </TableCell>
     </TableRow>
   );
 }

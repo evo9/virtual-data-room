@@ -5,3 +5,9 @@ export const folderNameSchema = z.object({
 });
 
 export type FolderNameValues = z.infer<typeof folderNameSchema>;
+
+export const fileBaseNameSchema = z.object({
+  baseName: z.string().trim().min(1, "Enter a file name").max(200, "Name is too long"),
+});
+
+export type FileBaseNameValues = z.infer<typeof fileBaseNameSchema>;

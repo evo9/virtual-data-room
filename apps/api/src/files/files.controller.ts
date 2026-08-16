@@ -1,6 +1,18 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { FilesService } from './files.service';
 import { UploadIntentDto } from './dto/upload-intent.dto';
+import { RenameFileDto } from './dto/rename-file.dto';
+import { MoveFileDto } from './dto/move-file.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/common/decorators/current-user.decorator';
 
@@ -22,5 +34,40 @@ export class FilesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.filesService.completeUpload(user.id, id);
+  }
+
+  @Patch(':id')
+  rename(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RenameFileDto,
+  ) {
+    return this.filesService.rename(user.id, id, dto);
+  }
+
+  @Patch(':id/move')
+  move(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MoveFileDto,
+  ) {
+    return this.filesService.move(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.filesService.remove(user.id, id);
+  }
+
+  @Get(':id/download-url')
+  getDownloadUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.filesService.getDownloadUrl(user.id, id);
   }
 }
