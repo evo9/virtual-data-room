@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { requireAccess } from '@/common/access';
+import {
+  AccessLevel,
+  dataRoomScope,
+  folderScope,
+  getFolderOrThrow,
+  requireAccess,
+} from '@/common/access';
 import { ContentItem, fetchContents } from '@/common/contents';
 import {
   decodeContentsCursor,
@@ -18,6 +24,10 @@ export interface DataRoomSummary {
   id: string;
   name: string;
   createdAt: Date;
+}
+
+export interface DataRoomDetail extends DataRoomSummary {
+  accessLevel: AccessLevel;
 }
 
 export interface FolderNode {
@@ -77,12 +87,37 @@ export class DataRoomsService {
     return { items: rows, nextCursor: null };
   }
 
+  async findOne(userId: string, dataRoomId: string): Promise<DataRoomDetail> {
+    const scope = dataRoomScope(dataRoomId);
+    const accessLevel = await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
+
+    const dataRoom = await this.prisma.dataRoom.findUniqueOrThrow({
+      where: { id: dataRoomId },
+      select: { id: true, name: true, createdAt: true },
+    });
+
+    return { ...dataRoom, accessLevel };
+  }
+
   async getContents(
     userId: string,
     dataRoomId: string,
     query: PaginationQueryDto,
   ): Promise<Page<ContentItem>> {
-    await requireAccess(this.prisma, userId, dataRoomId, 'VIEWER');
+    const scope = dataRoomScope(dataRoomId);
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
     const cursor = parseCursor(decodeContentsCursor, query.cursor);
     return fetchContents(this.prisma, dataRoomId, null, {
       cursor,
@@ -95,7 +130,19 @@ export class DataRoomsService {
     dataRoomId: string,
     parentId: string | null,
   ): Promise<FolderNode[]> {
-    await requireAccess(this.prisma, userId, dataRoomId, 'VIEWER');
+    const scope = parentId
+      ? folderScope(await getFolderOrThrow(this.prisma, parentId))
+      : dataRoomScope(dataRoomId);
+    if (scope.dataRoomId !== dataRoomId) {
+      throw new NotFoundException('Folder not found');
+    }
+    await requireAccess(
+      this.prisma,
+      { userId },
+      scope.dataRoomId,
+      scope.chain,
+      'VIEWER',
+    );
     const rows = await this.prisma.folder.findMany({
       where: { dataRoomId, parentId },
       select: { id: true, name: true, _count: { select: { children: true } } },

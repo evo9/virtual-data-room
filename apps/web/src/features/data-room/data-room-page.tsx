@@ -1,8 +1,8 @@
 import { AppHeader } from "@/components/app-header";
+import { PageLoadError } from "@/components/page-load-error";
 import { DataRoomSkeleton } from "@/features/data-room/components/data-room-skeleton";
 import { FolderExplorer } from "@/features/data-room/components/folder-explorer";
 import { NoDataRoomState } from "@/features/data-room/components/no-data-room-state";
-import { PageLoadError } from "@/features/data-room/components/page-load-error";
 import { useDataRooms } from "@/features/data-room/hooks";
 
 export function DataRoomPage() {
@@ -28,6 +28,7 @@ export function DataRoomPage() {
             dataRoomName={firstRoom.name}
             folderId={null}
             breadcrumbFolders={[]}
+            accessLevel="OWNER"
           />
         )}
       </main>

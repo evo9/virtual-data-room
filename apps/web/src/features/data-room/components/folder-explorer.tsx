@@ -1,26 +1,36 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
-import { FolderPlusIcon, UploadIcon } from "lucide-react";
+import { FolderPlusIcon, Share2Icon, UploadIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { BreadcrumbFolder } from "@/features/data-room/api";
+import type { AccessLevel, BreadcrumbFolder } from "@/features/data-room/api";
 import { BreadcrumbsBar } from "@/features/data-room/components/breadcrumbs-bar";
 import { ContentsTable } from "@/features/data-room/components/contents-table";
 import { CreateFolderDialog } from "@/features/data-room/components/create-folder-dialog";
 import { useFolderContents } from "@/features/data-room/hooks";
 import { UploadPanel } from "@/features/data-room/upload/upload-panel";
 import { useUploadQueue } from "@/features/data-room/upload/use-upload-queue";
+import { ShareDialog } from "@/features/sharing/components/share-dialog";
 
 interface FolderExplorerProps {
   dataRoomId: string;
-  dataRoomName: string;
+  dataRoomName: string | null;
   folderId: string | null;
   breadcrumbFolders: BreadcrumbFolder[];
+  accessLevel: AccessLevel;
 }
 
-export function FolderExplorer({ dataRoomId, dataRoomName, folderId, breadcrumbFolders }: FolderExplorerProps) {
+export function FolderExplorer({
+  dataRoomId,
+  dataRoomName,
+  folderId,
+  breadcrumbFolders,
+  accessLevel,
+}: FolderExplorerProps) {
+  const canManage = accessLevel === "OWNER";
   const contentsQuery = useFolderContents(dataRoomId, folderId);
   const [createOpen, setCreateOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +38,7 @@ export function FolderExplorer({ dataRoomId, dataRoomName, folderId, breadcrumbF
   const { tasks, enqueue, retry, clearFinished } = useUploadQueue(dataRoomId, folderId);
 
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!canManage) return;
     event.preventDefault();
     if (!event.dataTransfer.types.includes("Files")) return;
     dragCounter.current += 1;
@@ -35,16 +46,19 @@ export function FolderExplorer({ dataRoomId, dataRoomName, folderId, breadcrumbF
   }
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!canManage) return;
     event.preventDefault();
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!canManage) return;
     event.preventDefault();
     dragCounter.current = Math.max(0, dragCounter.current - 1);
     if (dragCounter.current === 0) setIsDragging(false);
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!canManage) return;
     event.preventDefault();
     dragCounter.current = 0;
     setIsDragging(false);
@@ -66,39 +80,59 @@ export function FolderExplorer({ dataRoomId, dataRoomName, folderId, breadcrumbF
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BreadcrumbsBar dataRoomName={dataRoomName} folders={breadcrumbFolders} />
-        <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Drag &amp; drop PDF files anywhere to upload
-          </span>
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <UploadIcon /> Upload
-          </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <FolderPlusIcon /> New folder
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Drag &amp; drop PDF files anywhere to upload
+            </span>
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <UploadIcon /> Upload
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+              <FolderPlusIcon /> New folder
+            </Button>
+            <Button size="sm" onClick={() => setShareOpen(true)}>
+              <Share2Icon /> Share
+            </Button>
+          </div>
+        )}
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="application/pdf"
-        className="hidden"
-        onChange={handleFileInputChange}
-      />
+      {canManage && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="application/pdf"
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+      )}
 
       <ContentsTable
         dataRoomId={dataRoomId}
         folderId={folderId}
         query={contentsQuery}
+        accessLevel={accessLevel}
         onCreateFolder={() => setCreateOpen(true)}
         onUploadClick={() => fileInputRef.current?.click()}
       />
 
-      <CreateFolderDialog open={createOpen} onOpenChange={setCreateOpen} dataRoomId={dataRoomId} parentId={folderId} />
+      {canManage && (
+        <>
+          <CreateFolderDialog open={createOpen} onOpenChange={setCreateOpen} dataRoomId={dataRoomId} parentId={folderId} />
 
-      <UploadPanel tasks={tasks} onRetry={retry} onClose={clearFinished} />
+          <ShareDialog
+            resourceType={folderId ? "FOLDER" : "DATAROOM"}
+            resourceId={folderId ?? dataRoomId}
+            resourceName={folderId ? breadcrumbFolders.at(-1)?.name ?? dataRoomName ?? "" : dataRoomName ?? ""}
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+          />
+
+          <UploadPanel tasks={tasks} onRetry={retry} onClose={clearFinished} />
+        </>
+      )}
 
       {isDragging && (
         <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10">

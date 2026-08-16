@@ -1,4 +1,4 @@
-import { DownloadIcon, FolderInputIcon, MoreVerticalIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, FolderInputIcon, MoreVerticalIcon, PencilIcon, Share2Icon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,13 +11,24 @@ import {
 interface FileRowMenuProps {
   fileName: string;
   downloadPending: boolean;
+  canManage: boolean;
   onRename: () => void;
   onMove: () => void;
   onDownload: () => void;
+  onShare: () => void;
   onDelete: () => void;
 }
 
-export function FileRowMenu({ fileName, downloadPending, onRename, onMove, onDownload, onDelete }: FileRowMenuProps) {
+export function FileRowMenu({
+  fileName,
+  downloadPending,
+  canManage,
+  onRename,
+  onMove,
+  onDownload,
+  onShare,
+  onDelete,
+}: FileRowMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -27,18 +38,29 @@ export function FileRowMenu({ fileName, downloadPending, onRename, onMove, onDow
         <MoreVerticalIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuItem onClick={onRename}>
-          <PencilIcon /> Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onMove}>
-          <FolderInputIcon /> Move
-        </DropdownMenuItem>
+        {canManage && (
+          <DropdownMenuItem onClick={onRename}>
+            <PencilIcon /> Rename
+          </DropdownMenuItem>
+        )}
+        {canManage && (
+          <DropdownMenuItem onClick={onMove}>
+            <FolderInputIcon /> Move
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem disabled={downloadPending} onClick={onDownload}>
           <DownloadIcon /> {downloadPending ? "Preparing..." : "Download"}
         </DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" onClick={onDelete}>
-          <Trash2Icon /> Delete
-        </DropdownMenuItem>
+        {canManage && (
+          <DropdownMenuItem onClick={onShare}>
+            <Share2Icon /> Share
+          </DropdownMenuItem>
+        )}
+        {canManage && (
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2Icon /> Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

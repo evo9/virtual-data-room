@@ -7,6 +7,8 @@ import { DataRoomsModule } from '@/data-rooms/data-rooms.module';
 import { FoldersModule } from '@/folders/folders.module';
 import { StorageModule } from '@/storage/storage.module';
 import { FilesModule } from '@/files/files.module';
+import { SharesModule } from '@/shares/shares.module';
+import { PublicModule } from '@/public/public.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { FilesModule } from '@/files/files.module';
     DataRoomsModule,
     FoldersModule,
     FilesModule,
+    SharesModule,
+    PublicModule,
   ],
   controllers: [AppController],
 })
