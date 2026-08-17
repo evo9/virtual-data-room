@@ -76,11 +76,6 @@ enum ShareMode {
   USER
 }
 
-enum ShareRole {
-  VIEWER
-  EDITOR
-}
-
 model Share {
   id           String            @id @default(uuid())
   resourceType ShareResourceType
@@ -88,7 +83,6 @@ model Share {
   mode         ShareMode
   token        String?           @unique
   granteeEmail String?
-  role         ShareRole         @default(VIEWER)
   createdById  String
   revokedAt    DateTime?
   createdAt    DateTime          @default(now())

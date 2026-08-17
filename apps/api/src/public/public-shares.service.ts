@@ -8,8 +8,8 @@ import {
   dataRoomScope,
   fileScope,
   folderScope,
-  getFileOrThrow,
   getFolderOrThrow,
+  getUploadedFileOrThrow,
   requireAccess,
 } from '@/common/access';
 import { ContentItem, fetchContents } from '@/common/contents';
@@ -119,7 +119,7 @@ export class PublicSharesService {
     fileId: string,
   ): Promise<{ url: string }> {
     await assertPublicTokenActive(this.prisma, token);
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
@@ -138,7 +138,7 @@ export class PublicSharesService {
     fileId: string,
   ): Promise<{ url: string }> {
     await assertPublicTokenActive(this.prisma, token);
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
@@ -160,7 +160,7 @@ export class PublicSharesService {
     fileId: string,
   ): Promise<{ id: string; name: string; size: number; mimeType: string }> {
     await assertPublicTokenActive(this.prisma, token);
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
@@ -205,7 +205,7 @@ export class PublicSharesService {
       return { name: folder.name, ...scope };
     }
 
-    const file = await getFileOrThrow(this.prisma, share.resourceId);
+    const file = await getUploadedFileOrThrow(this.prisma, share.resourceId);
     const scope = await fileScope(this.prisma, file);
     return {
       name: file.name,

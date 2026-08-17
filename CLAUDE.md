@@ -44,7 +44,7 @@ npm run lint
 
 ## Language
 
-**Everything in the product is English-only:** UI texts, API error messages, validation messages, code identifiers, comments, commit messages, README. No Russian (or any other language) anywhere in the deliverable - the assignment is reviewed by an English-speaking team. Russian is fine only in `docs/tasks/` planning files and chat. Before closing a task, grep for Cyrillic: `grep -rnP '[а-яА-ЯёЁ]' apps/*/src`.
+**Everything in the product is English-only:** UI texts, API error messages, validation messages, code identifiers, comments, commit messages, README. No Russian (or any other language) anywhere in the deliverable - the assignment is reviewed by an English-speaking team. Russian is fine only in `docs/tasks/` planning files and chat; `ai-usage-notes.md` in the repo root is deliberately in Ukrainian. Before closing a task, grep for Cyrillic: `grep -rnP '[а-яА-ЯёЁ]' apps/*/src`.
 
 ## Definition of done for any task
 
