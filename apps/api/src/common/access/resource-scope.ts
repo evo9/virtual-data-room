@@ -88,3 +88,21 @@ export async function getFileOrThrow(
   }
   return file;
 }
+
+/**
+ * Same as `getFileOrThrow`, but excludes rows whose upload never completed
+ * (`uploadedAt: null`) - the bucket object may not exist yet, so read paths
+ * must not surface these even though mutations still need to touch them.
+ */
+export async function getUploadedFileOrThrow(
+  prisma: PrismaService,
+  fileId: string,
+): Promise<FileRow> {
+  const file = await prisma.file.findFirst({
+    where: { id: fileId, uploadedAt: { not: null } },
+  });
+  if (!file) {
+    throw new NotFoundException('File not found');
+  }
+  return file;
+}

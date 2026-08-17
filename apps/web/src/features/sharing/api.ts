@@ -11,7 +11,6 @@ export interface Share {
   mode: ShareMode;
   token: string | null;
   granteeEmail: string | null;
-  role: "VIEWER" | "EDITOR";
   createdById: string;
   revokedAt: string | null;
   createdAt: string;

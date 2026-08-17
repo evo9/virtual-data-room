@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { StorageService } from '@/storage/storage.service';
 import {
   dataRoomScope,
   fileScope,
   getFileOrThrow,
+  getUploadedFileOrThrow,
   requireAccess,
 } from '@/common/access';
 import { resolveName } from '@/common/resolve-name';
@@ -94,7 +99,7 @@ export class FilesService {
   async completeUpload(userId: string, fileId: string) {
     const file = await this.prisma.file.findUnique({
       where: { id: fileId },
-      select: { id: true, dataRoomId: true },
+      select: { id: true, dataRoomId: true, storageKey: true },
     });
     if (!file) {
       throw new NotFoundException('File not found');
@@ -108,9 +113,14 @@ export class FilesService {
       'OWNER',
     );
 
+    const info = await this.storage.getObjectInfo(file.storageKey);
+    if (!info) {
+      throw new BadRequestException('Upload did not finish - please try again');
+    }
+
     return this.prisma.file.update({
       where: { id: fileId },
-      data: { uploadedAt: new Date() },
+      data: { uploadedAt: new Date(), size: info.size },
       select: { id: true, name: true, folderId: true },
     });
   }
@@ -189,7 +199,7 @@ export class FilesService {
 
     await this.prisma.file.delete({ where: { id: file.id } });
     // Row is already gone; an orphaned bucket object on storage failure is
-    // an accepted MVP trade-off (apps/api/CLAUDE.md), not a reason to 500.
+    // an accepted trade-off, not a reason to 500.
     await this.storage.removeObject(file.storageKey).catch(() => undefined);
   }
 
@@ -197,7 +207,7 @@ export class FilesService {
     userId: string,
     fileId: string,
   ): Promise<{ url: string }> {
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
@@ -215,7 +225,7 @@ export class FilesService {
   }
 
   async getFile(userId: string, fileId: string): Promise<FileDetail> {
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
@@ -236,7 +246,7 @@ export class FilesService {
   }
 
   async getViewUrl(userId: string, fileId: string): Promise<{ url: string }> {
-    const file = await getFileOrThrow(this.prisma, fileId);
+    const file = await getUploadedFileOrThrow(this.prisma, fileId);
     const scope = await fileScope(this.prisma, file);
     await requireAccess(
       this.prisma,
