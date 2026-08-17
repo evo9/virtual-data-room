@@ -138,6 +138,7 @@ erDiagram
         string mode "PUBLIC_LINK / USER"
         string token UK "null unless PUBLIC_LINK"
         string granteeEmail "null unless USER"
+        string role "VIEWER / EDITOR, only VIEWER used today"
         string createdById "who created the share, not an enforced FK"
         datetime revokedAt "null while active"
     }
@@ -151,14 +152,36 @@ erDiagram
 
 **100,000 files in one data room.** Already the operating assumption, not a hypothetical: every listing endpoint returns one folder level at a time (never the whole room flattened), paginated with keyset cursors over composite indexes - `(dataRoomId, parentId, nameLower, id)` for folders, `(dataRoomId, folderId, nameLower, id)` for files, `(resourceType, resourceId, createdAt, id)` / `(granteeEmail, createdAt, id)` for shares - so a page costs `O(page size)` regardless of how many siblings exist, and no listing endpoint runs `COUNT(*)` over the room (the delete-preview subtree aggregate is the one deliberate exception, and it's not on a list-rendering path). What's genuinely missing at that scale is name search across the whole room; the assignment lists it as optional, and the honest answer for when it's needed is a trigram index (`pg_trgm`) rather than `LIKE '%x%'`, since a B-tree on `nameLower` only accelerates prefix matches.
 
-**Viewer/editor roles.** `Share` doesn't need to change shape - it's already one row per (resource, recipient) grant, so a role is one more column on that same row, not a redesign. The change is additive: add `role` back to the schema (`VIEWER`/`EDITOR`, defaulting existing rows to `VIEWER` - a non-breaking migration), widen `AccessLevel`'s union to include `EDITOR`, and have `resolveAccess` read `share.role` into the level it returns instead of collapsing every share to `VIEWER`; the mutation endpoints that currently hardcode a required level of `OWNER` widen to also accept `EDITOR`, while share management and room-level actions stay owner-only. (An earlier pass at this schema had exactly that column, unused - removed during review, since an unused enum reads as an unfinished feature rather than a real one. The honest answer to "how would you add it" is a small additive migration, not a flag to flip.) Growing further - a default role per room, or shares granted to a group rather than one email - builds on the same row shape, just a different `granteeEmail` resolution step.
+**Viewer/editor roles.** `Share.role` already exists in the schema (`VIEWER` / `EDITOR`); only `VIEWER` is exercised today because the assignment only asks for read access. Turning `EDITOR` into real permissions doesn't touch the model - it's a handful of call sites in the authorization layer, not a redesign: widen the `AccessLevel` union to include `EDITOR`, stop `resolveAccess` from collapsing every share to `VIEWER` regardless of `role`, and let the mutation endpoints that currently hardcode a required level of `OWNER` also accept `EDITOR` (while keeping share management owner-only). Growing further - a default role per room, or shares granted to a group rather than one email - would build on the same `Share` row shape, just with a different `granteeEmail` resolution step.
 
 ## Where AI was used
 
-Built with Claude Code end to end, using a small fixed roster of subagents (backend, frontend, test-writer, reviewer, spec-checker) rather than one undifferentiated assistant - most feature work was drafted by the backend/frontend agents against an API contract fixed up front, then checked by an automated review pass and a pass that reconciled the diff against the assignment's actual requirements before calling anything done.
+All code in this repository was written by an agent (Claude Code). I was responsible for the task breakdown, the architectural decisions, the API contracts, reviewing every diff with targeted point fixes - and for commits, database migrations, and production checks, all of which the project rules ban the agent from doing.
 
-All application code here is agent-written; my side of the work was the task breakdown, the architectural decisions, the API contracts fixed before generation started, and a review of every diff with targeted point fixes (plus commits, migrations, and prod checks - all banned for the agent). The access-control core (`resolveAccess`, the materialized-path-to-ancestor-chain logic that both authenticated and public-token routes share) and the overall sharing design were not handed off to an implementation subagent - that part was written in the main orchestrating session and got the densest review, since a bug there is a data leak, not a UI glitch. Keyset pagination was built once and then applied identically to every list endpoint by the agents once the pattern existed.
+### How I organized the work
 
-Where it got it wrong, concretely: a public "view" endpoint quietly forced a file download instead of rendering it inline from the very first implementation - caught by re-reading my own spec, not by a reviewer; a share-list pagination change hid a resource's public link (and any newly-added recipient) behind a second page that the UI never fetched by default, which took two separate review passes to fully close because the first fix only solved half of it; and a breadcrumbs endpoint that, for a viewer whose access came from a share on a deep folder, returned the names of parent folders above the share boundary - not a permissions bypass, but a real information leak (showing names the viewer had no right to see), caught before shipping. None of these were "the AI can't code" failures - they were correctness edges an automated pass didn't reason through, which is exactly why review stayed mandatory on every change rather than optional for the ones that "looked simple."
+An orchestrator plus a fixed roster of subagents: backend-dev (`apps/api` only), frontend-dev (`apps/web` only), test-writer (targeted tests only for access control, name conflicts, and public tokens), reviewer (mandatory review of every change, read-only), spec-guardian (checks the implementation against the assignment's requirements when closing a task).
 
-A fuller note on the process and the concrete mistakes caught along the way: [ai-usage-notes.md](./ai-usage-notes.md) (in Ukrainian).
+The cycle for every feature: a task statement with done criteria -> backend/frontend working in parallel against a contract I fixed up front -> tests -> review (critical findings send the task back) -> spec check -> `build + lint + test` -> my check on prod. The access-control core (`resolveAccess`, the ancestor chain built from the materialized path) was not delegated to subagents - the main agent wrote it directly, and I reviewed that code the most closely: a bug there is a data leak, not a UI glitch.
+
+### Where the agent got it wrong
+
+The grossest one - lists without pagination: by default the agent pulled a whole level or hierarchy in one query, and even once the keyset pattern already existed in the codebase, a new folder-picker endpoint again returned everything at once (`take: 1000`). I rejected that solution outright at review - it was redone as per-level loading with `hasChildren`, and I added a rule to the project: "every list endpoint is paginated; an unbounded `findMany` is a defect".
+
+The rest caught at review:
+
+- breadcrumbs returned the names of all ancestors - a viewer saw folder names above the share boundary (an information leak);
+- the delete preview required the VIEWER level instead of OWNER;
+- a cross-user cache leak: logout didn't clear the client cache, so a new user saw the previous user's folders; separately, a cache key without the room id mixed one's own room with someone else's shared room;
+- the public "view" endpoint forced a download instead of inline PDF display from its very first implementation;
+- after the move to infinite scroll, the share dialog only saw the first page - the public link "got lost" and creating a new one became a silent no-op; it took a second review pass to close this fully;
+- a race at registration returned 500 instead of 409, and creating the user together with their room wasn't a single transaction;
+- upload retry created a new intent - the file got duplicated as "name (1).pdf"; the upload panel's close button disappeared after the first error;
+- deleting a folder never cleaned up storage: the service computed the list of keys, the controller discarded it;
+- download opened via `window.open` with no file name (a UUID instead of the name, at risk of popup blocking);
+- empty folder names passed validation (trim only on the frontend); backend validation messages weren't shown (an array instead of a string); there was no SPA fallback - F5 on prod would have given a 404;
+- the Download button inside a clickable row fired together with the row navigation; the keyboard variant of this bug slipped past me and two review rounds;
+- a subagent assigned only to `apps/api` edited a file in `apps/web` along the way; another time the agent rewrote a file from a stale copy in its context and wiped my parallel edit;
+- a background dev server was left holding port 3000 after a task (EADDRINUSE).
+
+It's because of mistakes of this kind that I kept review mandatory for every change, including the "simple" ones, and ran the final pass over all scenarios on prod by hand.
