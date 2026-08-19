@@ -6,19 +6,6 @@ A virtual data room for due diligence: nested folders, PDF upload and viewing, a
 - Web: https://virtual-data-room-two.vercel.app
 - API: https://virtual-data-room-production-8114.up.railway.app (liveness: `/health`)
 
-## Demo accounts
-
-| Role | Email | Password |
-|---|---|---|
-| Owner | `owner@demo.test` | `UzDVbBRSuMCYGESB` | 
-| Viewer (share recipient) | `viewer@demo.test` | `KbdhvDnzXD50qJlj` |
-
-The owner account has a data room with nested folders, a few PDFs, and shares already handed out. The viewer account has a shared room and a separately shared folder and file in "Shared with me" - both sides of sharing are visible without registering. Feel free to register your own account instead if you'd rather see the empty-state flow, or if someone before you has rearranged the demo content.
-
-These passwords are one-time, used only for this demo, and not reused anywhere else.
-
-There's no seed script - a `File` row is meaningless without a matching object in the storage bucket, so seeding would need the same upload machinery the app already has. The demo accounts and their content were created once, by hand, through the deployed UI - which doubles as the final end-to-end walkthrough (register → folders → upload → rename → move → share → revoke → delete) before shipping.
-
 ## Stack
 
 - **Web** - React 19, TypeScript, Vite, Tailwind 4, shadcn/ui, TanStack Query. Deployed on Vercel.
