@@ -14,11 +14,18 @@
 ![Vercel](https://img.shields.io/badge/Vercel-000000?logo=vercel&logoColor=white)
 ![Railway](https://img.shields.io/badge/Railway-0B0D0E?logo=railway&logoColor=white)
 
-A virtual data room for due diligence: nested folders, PDF upload and viewing, and read-only sharing (public link or per-email) with revocation.
+A virtual data room for due diligence: nested folders, PDF upload and viewing, and read-only sharing (public link or per-email) with revocation. The original assignment is in [`task.md`](./task.md).
 
 **Live:**
-- Web: https://virtual-data-room-two.vercel.app
-- API: https://virtual-data-room-production-8114.up.railway.app (liveness: `/health`)
+- Web: https://virtual-data-room-ten.vercel.app
+- API: https://virtual-data-room-production.up.railway.app (liveness: `/health`)
+
+**Test accounts:**
+
+| Email | Password |
+|---|---|
+| john@example.com | johnpass |
+| viewer@example.com | viewerpass |
 
 ## Stack
 
